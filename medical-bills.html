@@ -1,0 +1,390 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Medical Reimbursement &middot; DEO Telangana Office Suite</title>
+<link rel="stylesheet" href="assets/styles.css">
+<link rel="stylesheet" href="assets/print.css">
+</head>
+<body>
+<div class="wrap">
+  <div class="page-title"><h2>Medical Reimbursement</h2></div>
+  <div class="crumbs">Claims of employees / pensioners under the Telangana State Medical Attendance Rules, 1972 and G.O.s issued thereunder. Each claim produces an office <b>Note</b> and a <b>Draft</b> sanction proceedings.</div>
+
+  <div class="tabs">
+    <button data-v="list" class="active">Claims register</button>
+    <button data-v="new">New claim</button>
+  </div>
+
+  <!-- ================= LIST ================= -->
+  <section id="v-list">
+    <div class="pill-filter">
+      <input id="q" placeholder="Search employee / note no. / hospital" style="max-width:320px">
+      <select id="fStatus" style="max-width:180px">
+        <option value="">All status</option><option>Draft</option><option>Submitted</option>
+        <option>Sanctioned</option><option>Returned</option><option>Paid</option>
+      </select>
+      <select id="fFy" style="max-width:150px"><option value="">All F.Y.</option></select>
+      <span style="flex:1"></span>
+      <button class="btn secondary small" id="btnCsv">Export CSV</button>
+    </div>
+    <div class="table-scroll">
+      <table class="data" id="tbl">
+        <thead><tr>
+          <th>Note No.</th><th>Date</th><th>Employee</th><th>Nature / Hospital</th>
+          <th class="num">Claimed</th><th class="num">Admitted</th><th>Status</th><th></th>
+        </tr></thead><tbody></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ================= NEW / EDIT ================= -->
+  <section id="v-new" style="display:none">
+    <div class="card">
+      <form id="frm">
+        <input type="hidden" name="id">
+        <div class="form-row three">
+          <div><label>Employee</label><select name="empId" id="empId" required></select></div>
+          <div><label>Claim of</label>
+            <select name="claimant"><option>Self</option><option>Spouse</option><option>Dependent son</option><option>Dependent daughter</option><option>Dependent parent</option></select></div>
+          <div><label>Date of claim / receipt</label><input type="date" name="date" required></div>
+        </div>
+        <div class="form-row three">
+          <div><label>Nature of treatment</label><input name="nature" placeholder="e.g. Coronary Angiogram &amp; Angioplasty" required></div>
+          <div><label>Treatment type</label>
+            <select name="ttype"><option>In-patient (hospitalisation)</option><option>Out-patient / Domiciliary</option><option>Emergency</option><option>Chronic / OP (notified disease)</option><option>Investigations / Diagnostics</option></select></div>
+          <div><label>Hospital category</label>
+            <select name="hospCat"><option>Government Hospital</option><option>Referred (NIMS / referral)</option><option>Empanelled / Network hospital</option><option>Non-empanelled (emergency)</option><option>Other Govt. recognised</option></select></div>
+        </div>
+        <div class="form-row">
+          <div><label>Name &amp; place of hospital</label><input name="hospital" required></div>
+          <div><label>Period of treatment</label><input name="period" placeholder="from &hellip; to &hellip;"></div>
+        </div>
+        <div class="form-row three">
+          <div><label>Amount claimed (₹)</label><input type="number" name="claimed" min="0" step="0.01" required></div>
+          <div><label>Amount admissible / passed (₹)</label><input type="number" name="admitted" min="0" step="0.01" required></div>
+          <div><label>Amount disallowed (₹)</label><input name="disallowed" readonly class="muted"></div>
+        </div>
+        <div class="form-row">
+          <div><label>Head of account</label><input name="head" value="2202-01-800-04 / Reimbursement of Medical charges"></div>
+          <div><label>Ref. of Essentiality &amp; Emergency certificates</label><input name="ecref" placeholder="EC No. / date, EMC No. / date"></div>
+        </div>
+        <div class="form-row">
+          <div><label>Reference / sanction authority G.O.s cited</label>
+            <textarea name="gos">1. G.O.Ms.No.74, HM&amp;FW (K1) Dept., dt. 15-03-2005 (rates).
+2. G.O.Ms.No.87, HM&amp;FW Dept., dt. 03-04-2018 (revised procedure).
+3. Rule 7 &amp; Annexure-II of T.S.M.A. Rules, 1972.</textarea></div>
+          <div><label>Enclosures received (one per line)</label>
+            <textarea name="encl">Application in prescribed proforma
+Essentiality Certificate (Form-B)
+Emergency Certificate (where applicable)
+Discharge summary / case sheet
+Original bills, vouchers &amp; cash receipts
+Prescriptions and investigation reports
+Referral letter (if referred)
+Cancelled cheque leaf / pass-book copy</textarea></div>
+        </div>
+        <div class="form-row three">
+          <div><label>Dealing Assistant</label><input name="da" value="Superintendent (Cash / Estt.)"></div>
+          <div><label>Checked by</label><input name="checker" value="Administrative Officer"></div>
+          <div><label>Sanctioning authority</label><input name="authority" value="District Educational Officer"></div>
+        </div>
+        <div class="form-row one">
+          <div><label>Assistant's remarks in the Note (admissibility check)</label>
+            <textarea name="remarks">The claim has been checked with reference to the enclosures. The treatment pertains to a notified ailment / hospitalisation and the hospital falls under the category noted above. Rates claimed are within the ceiling prescribed in the G.O.s cited. The amount is admissible as worked out above and may be sanctioned.</textarea></div>
+        </div>
+        <div class="btn-row">
+          <button class="btn" type="submit">Save claim</button>
+          <button class="btn ghost" type="button" id="btnCancel">Cancel</button>
+        </div>
+      </form>
+    </div>
+  </section>
+
+  <!-- ================= RECORD (Details / Note / Draft) ================= -->
+  <section id="v-rec" style="display:none">
+    <button class="btn ghost small no-print" id="backBtn">&larr; Back to register</button>
+    <div class="tabs" style="margin-top:12px">
+      <button data-r="det" class="active">Details</button>
+      <button data-r="note">Note (File noting)</button>
+      <button data-r="draft">Draft (Proceedings)</button>
+    </div>
+
+    <div id="r-det" class="tab-panel active"></div>
+
+    <div id="r-note" class="tab-panel">
+      <div class="doc-toolbar no-print">
+        <select id="noteStatus" class="no-print" style="max-width:190px">
+          <option>Draft</option><option>Submitted</option><option>Sanctioned</option><option>Returned</option><option>Paid</option>
+        </select>
+        <button class="btn secondary small" id="btnPrintNote">Print / PDF</button>
+      </div>
+      <div class="doc" id="noteDoc"></div>
+    </div>
+
+    <div id="r-draft" class="tab-panel">
+      <div class="doc-toolbar no-print">
+        <button class="btn secondary small" id="btnPrintDraft">Print / PDF</button>
+      </div>
+      <div class="doc" id="draftDoc"></div>
+    </div>
+  </section>
+</div>
+
+<script src="assets/app.js"></script>
+<script>
+(function(){
+  const A = window.App, DB = A.DB;
+  A.chrome("medical-bills.html");
+  const M = DB.meta;
+
+  /* ---------- view switching ---------- */
+  const views = { list:A.$("#v-list"), new:A.$("#v-new"), rec:A.$("#v-rec") };
+  function show(v){ for(const k in views) views[k].style.display = k===v?"":"none"; }
+  A.$$(".tabs button[data-v]").forEach(b=>b.onclick=()=>{
+    A.$$(".tabs button[data-v]").forEach(x=>x.classList.toggle("active",x===b));
+    if(b.dataset.v==="new"){ resetForm(); show("new"); } else { render(); show("list"); }
+  });
+
+  /* ---------- employee dropdown ---------- */
+  A.$("#empId").innerHTML = DB.employees.map(e=>`<option value="${e.id}">${A.esc(e.empNo)} — ${A.esc(e.name)}, ${A.esc(e.designation)}, ${A.esc(e.school)}</option>`).join("");
+
+  /* ---------- FY filter ---------- */
+  const fys = [...new Set(DB.medicalBills.map(b=>A.fyOf(b.date)))].sort().reverse();
+  A.$("#fFy").insertAdjacentHTML("beforeend", fys.map(f=>`<option>${f}</option>`).join(""));
+
+  /* ---------- list ---------- */
+  function render(){
+    const q=A.$("#q").value.toLowerCase(), fs=A.$("#fStatus").value, ff=A.$("#fFy").value;
+    let rows = DB.medicalBills.slice().sort((a,b)=>String(b.date).localeCompare(a.date));
+    rows = rows.filter(b=>{
+      if(fs && b.status!==fs) return false;
+      if(ff && A.fyOf(b.date)!==ff) return false;
+      if(q && !((b.empName+" "+b.noteNo+" "+b.hospital+" "+b.nature).toLowerCase().includes(q))) return false;
+      return true;
+    });
+    const tb=A.$("#tbl tbody");
+    if(!rows.length){ tb.innerHTML=`<tr><td colspan="8" class="empty">No claims. Use “New claim”.</td></tr>`; return; }
+    tb.innerHTML = rows.map(b=>`
+      <tr>
+        <td>${A.esc(b.noteNo)}</td><td>${A.fmtDate(b.date)}</td>
+        <td>${A.esc(b.empName)}<div class="small muted">${A.esc(b.claimant)}</div></td>
+        <td>${A.esc(b.nature)}<div class="small muted">${A.esc(b.hospital)}</div></td>
+        <td class="num">${A.money(b.claimed)}</td><td class="num">${A.money(b.admitted)}</td>
+        <td><span class="badge ${badge(b.status)}">${b.status}</span></td>
+        <td><button class="btn ghost small" data-open="${b.id}">Open</button></td>
+      </tr>`).join("");
+    tb.querySelectorAll("[data-open]").forEach(x=>x.onclick=()=>openRec(x.dataset.open));
+  }
+  function badge(s){ return s==="Sanctioned"||s==="Paid"?"green":s==="Returned"?"red":s==="Submitted"?"amber":"grey"; }
+  function refList(s){
+    return A.esc(s||"").split("\n").map(l=>l.trim()).filter(Boolean)
+      .map((l,i)=>/^\d+[.)]/.test(l)?l:(i+1)+". "+l).join("<br>");
+  }
+  ["q","fStatus","fFy"].forEach(id=>A.$("#"+id).addEventListener("input",render));
+
+  /* ---------- form ---------- */
+  const frm=A.$("#frm");
+  function resetForm(){ frm.reset(); frm.elements.id.value=""; frm.elements.date.value=A.today(); calcDisallowed(); }
+  function calcDisallowed(){
+    const c=Number(frm.elements.claimed.value||0), a=Number(frm.elements.admitted.value||0);
+    frm.elements.disallowed.value = (c-a).toFixed(2);
+  }
+  frm.elements.claimed.addEventListener("input",calcDisallowed);
+  frm.elements.admitted.addEventListener("input",calcDisallowed);
+  A.$("#btnCancel").onclick=()=>{ render(); show("list"); A.$$(".tabs button[data-v]")[0].classList.add("active"); A.$$(".tabs button[data-v]")[1].classList.remove("active"); };
+
+  frm.addEventListener("submit",(e)=>{
+    e.preventDefault();
+    const o=A.formData(frm);
+    const emp=DB.employees.find(x=>x.id===o.empId);
+    o.empName=emp?emp.name:""; o.empDesig=emp?emp.designation:""; o.empSchool=emp?emp.school:"";
+    o.disallowed=Number(o.claimed)-Number(o.admitted);
+    A.commit(db=>{
+      if(o.id){ const i=db.medicalBills.findIndex(x=>x.id===o.id); o.noteNo=db.medicalBills[i].noteNo; o.status=db.medicalBills[i].status; db.medicalBills[i]=Object.assign(db.medicalBills[i],o); }
+      else{
+        const n=A.nextCounter("medicalNote");
+        o.id=A.uid("MED"); o.status="Draft";
+        o.noteNo=`Rc.No. ${n}/${new Date(o.date).getFullYear()}/Med-DEO/${M.district.split(" ")[0].slice(0,2).toUpperCase()}`;
+        db.medicalBills.push(o);
+      }
+    });
+    A.toast("Claim saved","ok");
+    openRec(o.id);
+  });
+
+  /* ---------- record view ---------- */
+  let cur=null;
+  A.$("#backBtn").onclick=()=>{ render(); show("list"); };
+  A.$$(".tabs button[data-r]").forEach(b=>b.onclick=()=>{
+    A.$$(".tabs button[data-r]").forEach(x=>x.classList.toggle("active",x===b));
+    A.$$("#v-rec .tab-panel").forEach(p=>p.classList.remove("active"));
+    A.$("#r-"+b.dataset.r).classList.add("active");
+  });
+
+  function openRec(id){
+    cur=DB.medicalBills.find(x=>x.id===id); if(!cur) return;
+    show("rec");
+    A.$$(".tabs button[data-v]").forEach(x=>x.classList.remove("active"));
+    A.$$(".tabs button[data-r]").forEach((x,i)=>x.classList.toggle("active",i===0));
+    A.$$("#v-rec .tab-panel").forEach((p,i)=>p.classList.toggle("active",i===0));
+    A.$("#noteStatus").value=cur.status;
+    detail(); noteDoc(); draftDoc();
+  }
+
+  A.$("#noteStatus").addEventListener("change",e=>{
+    A.commit(db=>{ db.medicalBills.find(x=>x.id===cur.id).status=e.target.value; });
+    cur.status=e.target.value; noteDoc(); draftDoc(); A.toast("Status updated");
+  });
+
+  function detail(){
+    const b=cur;
+    A.$("#r-det").innerHTML=`
+      <div class="card">
+        <div class="inline" style="justify-content:space-between">
+          <h3 style="margin:0">${A.esc(b.noteNo)}</h3>
+          <span class="badge ${badge(b.status)}">${b.status}</span>
+        </div>
+        <div class="divider"></div>
+        <div class="grid cols-3">
+          ${kv("Employee",b.empName+", "+b.empDesig)}
+          ${kv("Unit / School",b.empSchool)}
+          ${kv("Claim of",b.claimant)}
+          ${kv("Nature of treatment",b.nature)}
+          ${kv("Treatment type",b.ttype)}
+          ${kv("Hospital category",b.hospCat)}
+          ${kv("Hospital",b.hospital)}
+          ${kv("Period",b.period||"—")}
+          ${kv("Head of account",b.head)}
+          ${kv("Amount claimed",A.money(b.claimed))}
+          ${kv("Amount admitted",A.money(b.admitted))}
+          ${kv("Amount disallowed",A.money(b.disallowed))}
+          ${kv("EC / EMC ref.",b.ecref||"—")}
+        </div>
+        <div class="btn-row">
+          <button class="btn secondary small" id="edit">Edit claim</button>
+          <button class="btn small" id="toBill">Send to Bill Generation</button>
+          <button class="btn danger small" id="del">Delete</button>
+        </div>
+      </div>`;
+    A.$("#edit").onclick=()=>{
+      resetForm();
+      for(const k in b){ const f=frm.elements[k]; if(f) f.value=b[k]; }
+      calcDisallowed(); show("new");
+    };
+    A.$("#del").onclick=()=>{
+      if(!A.confirmBox("Delete this claim and its Note/Draft?")) return;
+      A.commit(db=>{ db.medicalBills=db.medicalBills.filter(x=>x.id!==b.id); });
+      render(); show("list"); A.toast("Deleted");
+    };
+    A.$("#toBill").onclick=()=>{
+      A.commit(db=>{
+        const v=A.nextCounter("billVoucher");
+        db.bills.push({
+          id:A.uid("BILL"), date:A.today(), voucherNo:"V-"+v+"/"+A.fyOf(),
+          type:"Medical Reimbursement", title:"Medical reimbursement — "+b.empName+" ("+b.nature+")",
+          payee:b.empName, head:b.head, gross:Number(b.admitted), deductions:0, net:Number(b.admitted),
+          status:"Prepared", sourceRef:b.noteNo, narration:"Reimbursement of medical charges sanctioned in "+b.noteNo
+        });
+      });
+      A.toast("Bill created in Bill Generation","ok");
+    };
+  }
+  function kv(k,v){ return `<div><label>${k}</label><div>${A.esc(v)}</div></div>`; }
+
+  /* ---------- NOTE document ---------- */
+  function noteDoc(){
+    const b=cur;
+    const encl=(b.encl||"").split("\n").filter(Boolean);
+    A.$("#noteDoc").innerHTML=`
+      <div class="doc-head">
+        <h3>${A.esc(M.office).toUpperCase()}, ${A.esc(M.district).toUpperCase()}</h3>
+        <p>OFFICE NOTE &mdash; MEDICAL REIMBURSEMENT</p>
+      </div>
+      <hr>
+      <div class="ref-line"><span><b>File / Rc. No.:</b> ${A.esc(b.noteNo)}</span><span><b>Date:</b> ${A.fmtDate(b.date)}</span></div>
+      <div class="ref-line"><span><b>Section:</b> Cash / Establishment</span><span><b>Status:</b> ${b.status}</span></div>
+      <div class="subject"><b>Sub:</b> Estt. &mdash; Medical Reimbursement &mdash; Claim of Sri/Smt. <b>${A.esc(b.empName)}</b>, ${A.esc(b.empDesig)}, ${A.esc(b.empSchool)} &mdash; towards ${A.esc(b.claimant.toLowerCase())} &mdash; ${A.esc(b.nature)} &mdash; Reg.</div>
+      <div class="subject"><b>Ref:</b><br>${refList(b.gos)}</div>
+      <hr>
+      <div class="noting">
+        <div class="para">The individual noted in the subject cited has submitted an application dated ${A.fmtDate(b.date)} claiming reimbursement of medical expenditure of <b>${A.money(b.claimed)}</b> incurred on ${A.esc(b.ttype.toLowerCase())} at <b>${A.esc(b.hospital)}</b> (${A.esc(b.hospCat)})${b.period?(" during the period "+A.esc(b.period)):""} for treatment of <b>${A.esc(b.nature)}</b>.</div>
+        <div class="para">The following documents have been received and placed in the file:</div>
+        <table class="doc-tbl"><thead><tr><th style="width:38px">Sl.</th><th>Enclosure</th></tr></thead>
+        <tbody>${encl.map((e,i)=>`<tr><td>${i+1}</td><td>${A.esc(e)}</td></tr>`).join("")}</tbody></table>
+        <div class="para"><b>Admissibility examined:</b> ${A.esc(b.remarks||"")}</div>
+        <table class="doc-tbl">
+          <tbody>
+          <tr><td>Amount claimed</td><td class="right">${A.money(b.claimed)}</td></tr>
+          <tr><td>Amount disallowed (rates / non-admissible items)</td><td class="right">${A.money(b.disallowed)}</td></tr>
+          <tr><td><b>Amount admitted for reimbursement</b></td><td class="right"><b>${A.money(b.admitted)}</b></td></tr>
+          <tr><td>Amount in words</td><td class="right">${A.esc(A.amountInWords(b.admitted))}</td></tr>
+          <tr><td>Head of account</td><td class="right">${A.esc(b.head)}</td></tr>
+          </tbody>
+        </table>
+        <div class="para">The expenditure is debitable to the head of account noted above and funds are available. There is no previous claim pending for the same treatment. The claim is in order.</div>
+        <div class="para"><b>Submitted for orders.</b> A draft sanction proceedings is put up. If approved, the same may be issued and the bill drawn and remitted to the individual's bank account through the Treasury.</div>
+      </div>
+      <div class="sign-block">
+        <div>${A.esc(b.da||"Superintendent")}</div>
+      </div>
+      <div class="noting" style="margin-top:26px">
+        <div class="para"><b>A.O. / Checked by:</b> Verified. Placed for orders. &mdash; ${A.esc(b.checker||"Administrative Officer")}</div>
+        <div class="para"><b>Orders of the ${A.esc(b.authority||"District Educational Officer")}:</b> Sanctioned for <b>${A.money(b.admitted)}</b>. Issue proceedings.</div>
+      </div>
+      <div class="sign-block"><div class="desig">${A.esc(b.authority||"District Educational Officer")}</div><div>${A.esc(M.district)}</div></div>`;
+  }
+
+  /* ---------- DRAFT proceedings ---------- */
+  function draftDoc(){
+    const b=cur;
+    const pno = b.procNo || null;
+    A.$("#draftDoc").innerHTML=`
+      <div class="doc-head">
+        <p>DRAFT &nbsp;/&nbsp; PROCEEDINGS OF THE ${A.esc(M.officer).toUpperCase()}, ${A.esc(M.district).toUpperCase()}</p>
+        <p><b>Present:</b> Sri/Smt. ____________________</p>
+      </div>
+      <hr>
+      <div class="ref-line"><span><b>Proc. Rc. No.:</b> ${A.esc(b.noteNo)}</span><span><b>Dated:</b> ${A.fmtDate(A.today())}</span></div>
+      <div class="subject"><b>Sub:</b> Establishment &mdash; Medical Reimbursement &mdash; Sri/Smt. ${A.esc(b.empName)}, ${A.esc(b.empDesig)}, ${A.esc(b.empSchool)} &mdash; Reimbursement of medical expenses of ${A.money(b.admitted)} towards ${A.esc(b.claimant.toLowerCase())} &mdash; Sanctioned &mdash; Orders &mdash; Issued.</div>
+      <div class="subject"><b>Ref:</b><br>${refList(b.gos)}<br>${A.esc(b.gos||"").split("\n").filter(Boolean).length+1}. Application of the individual dated ${A.fmtDate(b.date)}.</div>
+      <hr>
+      <div class="body">
+        <p><b>ORDER:</b></p>
+        <p>In the reference cited, Sri/Smt. <b>${A.esc(b.empName)}</b>, ${A.esc(b.empDesig)}, ${A.esc(b.empSchool)}, has applied for reimbursement of medical expenses incurred on treatment of <b>${A.esc(b.nature)}</b> ${b.period?("during "+A.esc(b.period)+" "):""}at <b>${A.esc(b.hospital)}</b> (${A.esc(b.hospCat)}).</p>
+        <p>The claim has been examined with reference to the Telangana State Medical Attendance Rules, 1972 and the orders issued in the G.O.s cited. The Essentiality Certificate and other prescribed documents are on record. The amount claimed is ${A.money(b.claimed)}, of which ${A.money(b.disallowed)} is not admissible and the balance is in order.</p>
+        <p>The ${A.esc(M.officer)}, ${A.esc(M.district)}, hereby <b>accords sanction</b> for reimbursement of medical charges of <b>${A.money(b.admitted)}</b> (${A.esc(A.amountInWords(b.admitted))}) to Sri/Smt. ${A.esc(b.empName)}.</p>
+        <table class="doc-tbl">
+          <tr><td style="width:55%">Amount sanctioned for reimbursement</td><td class="right">${A.money(b.admitted)}</td></tr>
+          <tr><td>Head of account to which the expenditure is debitable</td><td class="right">${A.esc(b.head)}</td></tr>
+          <tr><td>Financial Year</td><td class="right">${A.fyOf(b.date)}</td></tr>
+        </table>
+        <p>The Drawing &amp; Disbursing Officer is directed to draw the amount in the medical reimbursement bill and disburse it to the individual by credit to the bank account recorded in the establishment. The paid vouchers and the office copy of this proceedings shall be retained for audit.</p>
+        <p>This order is issued with the concurrence of the Drawing &amp; Disbursing Officer and subject to the usual audit checks.</p>
+      </div>
+      <div class="sign-block"><div class="desig">${A.esc(M.officer)}</div><div>${A.esc(M.district)}</div></div>
+      <div class="tolist">
+        <b>To</b><br>
+        The individual through the Headmaster / Office concerned.<br>
+        The Drawing &amp; Disbursing Officer / Cash Section.<br>
+        Copy submitted to the ${A.esc(M.treasury)} for information.<br>
+        Stock file / Spare.
+      </div>`;
+  }
+
+  A.$("#btnPrintNote").onclick=()=>window.print();
+  A.$("#btnPrintDraft").onclick=()=>window.print();
+
+  /* ---------- CSV ---------- */
+  A.$("#btnCsv").onclick=()=>{
+    const head=["NoteNo","Date","Employee","Designation","School","ClaimOf","Nature","Hospital","HospitalCat","Claimed","Admitted","Disallowed","Head","Status"];
+    const rows=DB.medicalBills.map(b=>[b.noteNo,b.date,b.empName,b.empDesig,b.empSchool,b.claimant,b.nature,b.hospital,b.hospCat,b.claimed,b.admitted,b.disallowed,b.head,b.status]);
+    A.downloadFile("medical-claims-"+A.today()+".csv",A.toCSV([head,...rows]),"text/csv");
+  };
+
+  resetForm(); render();
+})();
+</script>
+</body>
+</html>

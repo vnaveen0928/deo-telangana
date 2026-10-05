@@ -1,0 +1,240 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pay Slips &middot; DEO Telangana Office Suite</title>
+<link rel="stylesheet" href="assets/styles.css">
+<link rel="stylesheet" href="assets/print.css">
+</head>
+<body>
+<div class="wrap">
+  <div class="page-title"><h2>Pay Slips</h2></div>
+  <div class="crumbs">Monthly pay slip for an individual employee — RPS-2020 style earnings and recoveries. DA %, PT and other rates are taken from <a href="settings.html">Settings</a>.</div>
+
+  <div class="tabs">
+    <button data-v="gen" class="active">Generate</button>
+    <button data-v="list">Saved pay slips</button>
+  </div>
+
+  <section id="v-gen">
+    <div class="card">
+      <form id="frm">
+        <div class="form-row three">
+          <div><label>Employee</label><select name="empId" id="empId" required></select></div>
+          <div><label>Pay of month</label><input type="month" name="month" required></div>
+          <div><label>DA % (this month)</label><input type="number" name="daPct" step="0.001"></div>
+        </div>
+        <div class="form-row three">
+          <div><label>Basic pay for the month (₹)</label><input type="number" name="basic" min="0"></div>
+          <div><label>HRA %</label><input type="number" name="hraPct" step="0.5"></div>
+          <div><label>CCA (₹)</label><input type="number" name="cca" min="0"></div>
+        </div>
+        <div class="form-row three">
+          <div><label>LOP / EOL days (deducted proportionately)</label><input type="number" name="lopDays" min="0" value="0"></div>
+          <div><label>Days in month</label><input type="number" name="monthDays" min="28" max="31" value="30"></div>
+          <div><label>Other earnings — e.g. arrears (₹)</label><input type="number" name="otherEarn" min="0" value="0"></div>
+        </div>
+        <div class="divider"></div>
+        <div class="form-row three">
+          <div><label>GPF subscription (₹)</label><input type="number" name="gpf" min="0" value="0"></div>
+          <div><label>APGLI (₹)</label><input type="number" name="apgli" min="0"></div>
+          <div><label>Professional Tax (₹) — blank = auto slab</label><input type="number" name="pt" min="0"></div>
+        </div>
+        <div class="form-row three">
+          <div><label>GIS (₹)</label><input type="number" name="gis" min="0"></div>
+          <div><label>Income Tax (₹)</label><input type="number" name="incomeTax" min="0" value="0"></div>
+          <div><label>Other recoveries — festival adv./ HBA / society (₹)</label><input type="number" name="otherDed" min="0" value="0"></div>
+        </div>
+        <div class="form-row one"><div><label>Other recoveries — description</label><input name="otherDedDesc" placeholder="e.g. Festival Advance instalment 3/10, Co-op Society"></div></div>
+        <div class="btn-row">
+          <button class="btn" type="submit">Compute pay slip</button>
+          <button class="btn ghost" type="button" id="btnLoadDef">Reset to employee defaults</button>
+        </div>
+      </form>
+    </div>
+
+    <div id="out" style="display:none;margin-top:16px">
+      <div class="doc-toolbar no-print">
+        <button class="btn small" id="btnSave">Save pay slip</button>
+        <button class="btn secondary small" id="btnPrint">Print / PDF</button>
+      </div>
+      <div class="doc" id="slip"></div>
+    </div>
+  </section>
+
+  <section id="v-list" style="display:none">
+    <div class="pill-filter">
+      <select id="fMonth" style="max-width:170px"><option value="">All months</option></select>
+      <input id="q" placeholder="Search employee" style="max-width:260px">
+      <span style="flex:1"></span>
+      <button class="btn secondary small" id="btnCsv">Export CSV</button>
+    </div>
+    <div class="table-scroll">
+      <table class="data" id="tbl"><thead><tr>
+        <th>Month</th><th>Employee</th><th class="num">Basic</th><th class="num">Gross</th>
+        <th class="num">Deductions</th><th class="num">Net</th><th></th>
+      </tr></thead><tbody></tbody></table>
+    </div>
+  </section>
+</div>
+
+<script src="assets/app.js"></script>
+<script>
+(function(){
+  const A=window.App, DB=window.App.DB, M=DB.meta;
+  A.chrome("payslips.html");
+
+  A.$("#empId").innerHTML=DB.employees.map(e=>`<option value="${e.id}">${A.esc(e.empNo)} — ${A.esc(e.name)}, ${A.esc(e.designation)}</option>`).join("");
+
+  const views={gen:A.$("#v-gen"),list:A.$("#v-list")};
+  function show(v){for(const k in views)views[k].style.display=k===v?"":"none";}
+  A.$$(".tabs button[data-v]").forEach(b=>b.onclick=()=>{
+    A.$$(".tabs button[data-v]").forEach(x=>x.classList.toggle("active",x===b));
+    if(b.dataset.v==="list")render();
+    show(b.dataset.v);
+  });
+
+  const frm=A.$("#frm");
+  function emp(){return DB.employees.find(x=>x.id===frm.elements.empId.value);}
+  function loadDefaults(){
+    const e=emp(); if(!e)return;
+    const r=A.rates();
+    frm.elements.month.value=frm.elements.month.value||new Date().toISOString().slice(0,7);
+    frm.elements.daPct.value=r.daPct;
+    frm.elements.basic.value=e.basic;
+    frm.elements.hraPct.value=e.hraPct||0;
+    frm.elements.cca.value=e.cca||0;
+    frm.elements.apgli.value=e.apgli||0;
+    frm.elements.gis.value=r.gisMonthly;
+    frm.elements.pt.value="";
+    frm.elements.gpf.value=0;
+  }
+  A.$("#empId").addEventListener("change",loadDefaults);
+  A.$("#btnLoadDef").onclick=loadDefaults;
+  loadDefaults();
+
+  let last=null;
+  frm.addEventListener("submit",e=>{
+    e.preventDefault();
+    const o=A.formData(frm), em=emp(); if(!em)return;
+    const lop=Number(o.lopDays)||0, md=Number(o.monthDays)||30;
+    const p=A.computePay(em,{
+      basic:o.basic, daPct:o.daPct===""?undefined:Number(o.daPct),
+      hraPct:o.hraPct===""?undefined:Number(o.hraPct), cca:o.cca===""?undefined:Number(o.cca),
+      otherEarn:o.otherEarn, gpf:o.gpf, apgli:o.apgli===""?undefined:Number(o.apgli),
+      pt:o.pt===""?undefined:Number(o.pt), gis:o.gis===""?undefined:Number(o.gis),
+      incomeTax:o.incomeTax, otherDed:o.otherDed
+    });
+    /* LOP: proportionate cut on basic+DA+HRA */
+    let lopAmt=0;
+    if(lop>0){ lopAmt=Math.round((p.basic+p.da+p.hra)*lop/md); }
+    const grossAfter=p.gross-lopAmt;
+    const netAfter=grossAfter-p.totalDed;
+    last={emp:em,month:o.month,p,lop,md,lopAmt,grossAfter,netAfter,otherDedDesc:o.otherDedDesc,
+      inputs:o};
+    slip();
+    A.$("#out").style.display="";
+  });
+
+  function row(l,v){return `<tr><td>${l}</td><td class="right">${v}</td></tr>`;}
+  function slip(){
+    const {emp:e,month,p,lop,lopAmt,grossAfter,netAfter,otherDedDesc}=last;
+    const mm=month.split("-"); const mName=A.MONTHS[Number(mm[1])-1]+" "+mm[0];
+    const earn=[
+      row("Basic Pay",A.money(p.basic)),
+      row("Dearness Allowance @ "+p.daPct+"%",A.money(p.da)),
+      row("House Rent Allowance @ "+p.hraPct+"%",A.money(p.hra)),
+      p.cca?row("City Compensatory Allowance",A.money(p.cca)):"",
+      p.otherEarn?row("Other earnings / Arrears",A.money(p.otherEarn)):"",
+      lop?row("Less: LOP / EOL ("+lop+" day"+(lop>1?"s":"")+")","-"+A.money(lopAmt).replace("₹ ","₹ ")):"",
+    ].join("");
+    const ded=[
+      p.scheme==="CPS/NPS"?row("CPS / NPS (10% of Basic+DA)",A.money(p.cps)):"",
+      p.gpf?row("G.P.F. subscription",A.money(p.gpf)):"",
+      row("A.P.G.L.I.",A.money(p.apgli)),
+      row("Group Insurance Scheme",A.money(p.gis)),
+      row("Professional Tax",A.money(p.pt)),
+      p.it?row("Income Tax (TDS)",A.money(p.it)):"",
+      p.otherDed?row("Other recoveries"+(otherDedDesc?(" — "+A.esc(otherDedDesc)):""),A.money(p.otherDed)):"",
+    ].join("");
+    A.$("#slip").innerHTML=`
+      <div class="doc-head">
+        <h3>${A.esc(M.office).toUpperCase()}, ${A.esc(M.district).toUpperCase()}</h3>
+        <p>PAY SLIP FOR THE MONTH OF ${mName.toUpperCase()}</p>
+      </div><hr>
+      <table class="doc-tbl">
+        <tr><td style="width:22%"><b>Name</b></td><td style="width:45%">${A.esc(e.name)}</td><td style="width:15%"><b>Emp. No.</b></td><td>${A.esc(e.empNo)}</td></tr>
+        <tr><td><b>Designation</b></td><td>${A.esc(e.designation)}</td><td><b>Group</b></td><td>${A.esc(e.group||"-")}</td></tr>
+        <tr><td><b>Office / School</b></td><td>${A.esc(e.school)}</td><td><b>Pay Scale</b></td><td>${A.esc(e.scale||"-")}</td></tr>
+        <tr><td><b>Treasury ID</b></td><td>${A.esc(e.treasuryId||"-")}</td><td><b>PAN</b></td><td>${A.esc(e.pan||"-")}</td></tr>
+        <tr><td><b>Pension scheme</b></td><td>${p.scheme} ${e.cpsNo?("("+A.esc(e.cpsNo)+")"):(e.gpfNo?("("+A.esc(e.gpfNo)+")"):"")}</td><td><b>Bank A/c</b></td><td>${A.esc(e.bank||"")} ${A.esc(e.account||"")} / ${A.esc(e.ifsc||"")}</td></tr>
+      </table>
+      <table class="doc-tbl">
+        <thead><tr><th colspan="2">EARNINGS</th></tr></thead>
+        <tbody>${earn}
+          <tr><td><b>Gross</b></td><td class="right"><b>${A.money(grossAfter)}</b></td></tr>
+        </tbody>
+      </table>
+      <table class="doc-tbl">
+        <thead><tr><th colspan="2">DEDUCTIONS</th></tr></thead>
+        <tbody>${ded}
+          <tr><td><b>Total deductions</b></td><td class="right"><b>${A.money(p.totalDed)}</b></td></tr>
+        </tbody>
+      </table>
+      <table class="doc-tbl">
+        <tr><td style="width:70%"><b>NET PAY</b></td><td class="right"><b>${A.money(netAfter)}</b></td></tr>
+        <tr><td colspan="2">(${A.esc(A.amountInWords(netAfter))})</td></tr>
+      </table>
+      <p class="small">This is a computer-generated pay slip for the internal record of the office and is subject to verification with the pay bill and treasury schedules. DA/HRA/PT rates as adopted in Settings for ${A.fyOf(month+"-01")}.</p>
+      <div class="sign-block" style="margin-top:26px"><div class="desig">Drawing &amp; Disbursing Officer</div><div>${A.esc(M.office)}, ${A.esc(M.district)}</div></div>`;
+  }
+
+  A.$("#btnPrint").onclick=()=>window.print();
+  A.$("#btnSave").onclick=()=>{
+    if(!last)return;
+    A.commit(db=>{
+      db.payBills.push({
+        id:A.uid("PS"),kind:"payslip",date:A.today(),month:last.month,
+        empId:last.emp.id,empName:last.emp.name,empDesig:last.emp.designation,
+        basic:last.p.basic,gross:last.grossAfter,deductions:last.p.totalDed,net:last.netAfter,
+        detail:last.p,lopDays:last.lop,otherDedDesc:last.otherDedDesc
+      });
+    });
+    A.toast("Pay slip saved","ok");
+  };
+
+  /* ---- saved list ---- */
+  const months=[...new Set(DB.payBills.filter(x=>x.kind==="payslip").map(x=>x.month))].sort().reverse();
+  A.$("#fMonth").insertAdjacentHTML("beforeend",months.map(m=>`<option>${m}</option>`).join(""));
+  function render(){
+    const fm=A.$("#fMonth").value,q=A.$("#q").value.toLowerCase();
+    let rows=DB.payBills.filter(x=>x.kind==="payslip");
+    rows=rows.filter(x=>{
+      if(fm&&x.month!==fm)return false;
+      if(q&&!x.empName.toLowerCase().includes(q))return false;
+      return true;
+    }).sort((a,b)=>String(b.month).localeCompare(a.month));
+    const tb=A.$("#tbl tbody");
+    if(!rows.length){tb.innerHTML=`<tr><td colspan="7" class="empty">No saved pay slips.</td></tr>`;return;}
+    tb.innerHTML=rows.map(x=>`<tr>
+      <td>${x.month}</td><td>${A.esc(x.empName)}<div class="small muted">${A.esc(x.empDesig)}</div></td>
+      <td class="num">${A.money(x.basic)}</td><td class="num">${A.money(x.gross)}</td>
+      <td class="num">${A.money(x.deductions)}</td><td class="num">${A.money(x.net)}</td>
+      <td><button class="btn ghost small" data-del="${x.id}">Delete</button></td></tr>`).join("");
+    tb.querySelectorAll("[data-del]").forEach(b=>b.onclick=()=>{
+      if(!A.confirmBox("Delete this saved pay slip?"))return;
+      A.commit(db=>{db.payBills=db.payBills.filter(y=>y.id!==b.dataset.del);});
+      render();
+    });
+  }
+  ["fMonth","q"].forEach(id=>A.$("#"+id).addEventListener("input",render));
+  A.$("#btnCsv").onclick=()=>{
+    const head=["Month","Employee","Designation","Basic","Gross","Deductions","Net"];
+    const rows=DB.payBills.filter(x=>x.kind==="payslip").map(x=>[x.month,x.empName,x.empDesig,x.basic,x.gross,x.deductions,x.net]);
+    A.downloadFile("payslips-"+A.today()+".csv",A.toCSV([head,...rows]),"text/csv");
+  };
+})();
+</script>
+</body>
+</html>

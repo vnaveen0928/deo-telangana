@@ -1,0 +1,175 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Establishment &middot; DEO Telangana Office Suite</title>
+<link rel="stylesheet" href="assets/styles.css">
+<link rel="stylesheet" href="assets/print.css">
+</head>
+<body>
+<div class="wrap">
+  <div class="page-title"><h2>Establishment &mdash; Staff Master</h2></div>
+  <div class="crumbs">Service &amp; pay particulars of teaching and ministerial staff. Used across Pay Slips, Pay Bills and Service Matters.</div>
+
+  <div class="pill-filter">
+    <input id="q" placeholder="Search name / employee no. / school" style="max-width:320px">
+    <select id="fCadre" style="max-width:200px"><option value="">All cadres</option></select>
+    <select id="fStatus" style="max-width:180px">
+      <option value="">All status</option><option>Working</option><option>On Leave</option>
+      <option>Under Suspension</option><option>Transferred</option><option>Retired</option>
+    </select>
+    <span class="spacer" style="flex:1"></span>
+    <button class="btn secondary small" id="btnCsv">Export CSV</button>
+    <button class="btn small" id="btnNew">+ Add employee</button>
+  </div>
+
+  <div class="table-scroll">
+    <table class="data" id="tbl">
+      <thead><tr>
+        <th>Emp No.</th><th>Name</th><th>Designation</th><th>School / Unit</th>
+        <th>Pay Scale</th><th class="num">Basic</th><th>Scheme</th><th>Status</th><th></th>
+      </tr></thead>
+      <tbody></tbody>
+    </table>
+  </div>
+
+  <dialog id="dlg">
+    <form method="dialog" id="frm">
+      <h3 style="margin:0 0 12px;color:var(--gov-green-dark)" id="dlgTitle">Add employee</h3>
+      <input type="hidden" name="id">
+      <div class="form-row three">
+        <div><label>Employee No.</label><input name="empNo" required></div>
+        <div><label>Full name (as in service register)</label><input name="name" required></div>
+        <div><label>Category</label>
+          <select name="category"><option>OC</option><option>BC-A</option><option>BC-B</option><option>BC-C</option><option>BC-D</option><option>BC-E</option><option>SC</option><option>ST</option><option>EWS</option><option>Minority</option></select></div>
+      </div>
+      <div class="form-row three">
+        <div><label>Designation</label><input name="designation" required></div>
+        <div><label>Cadre</label>
+          <select name="cadre"><option>SGT</option><option>SA</option><option>LFL HM</option><option>Gazetted HM</option><option>Principal</option><option>Lecturer</option><option>Ministerial</option><option>Class-IV</option><option>Other</option></select></div>
+        <div><label>Group</label><select name="group"><option>A</option><option>B</option><option>C</option><option>D</option></select></div>
+      </div>
+      <div class="form-row">
+        <div><label>School / Office unit</label><input name="school" required></div>
+        <div><label>Mandal</label><input name="mandal"></div>
+      </div>
+      <div class="form-row three">
+        <div><label>Date of birth</label><input type="date" name="dob"></div>
+        <div><label>Date of first appointment</label><input type="date" name="doj"></div>
+        <div><label>Date of joining (present unit)</label><input type="date" name="doa"></div>
+      </div>
+      <div class="form-row three">
+        <div><label>Pay scale (RPS-2020)</label><input name="scale" placeholder="37100-91450"></div>
+        <div><label>Basic pay</label><input type="number" name="basic" min="0" required></div>
+        <div><label>HRA %</label><select name="hraPct"><option value="30">30</option><option value="24">24</option><option value="20">20</option><option value="17">17</option><option value="14.5">14.5</option><option value="12">12</option><option value="8">8</option><option value="0">0</option></select></div>
+      </div>
+      <div class="form-row three">
+        <div><label>CCA (₹)</label><input type="number" name="cca" min="0" value="0"></div>
+        <div><label>CPS / PRAN No.</label><input name="cpsNo" placeholder="leave blank if GPF"></div>
+        <div><label>GPF No.</label><input name="gpfNo" placeholder="leave blank if CPS"></div>
+      </div>
+      <div class="form-row three">
+        <div><label>APGLI monthly (₹)</label><input type="number" name="apgli" min="0" value="0"></div>
+        <div><label>PAN</label><input name="pan"></div>
+        <div><label>Treasury Employee ID</label><input name="treasuryId"></div>
+      </div>
+      <div class="form-row three">
+        <div><label>Bank</label><input name="bank"></div>
+        <div><label>Account No.</label><input name="account"></div>
+        <div><label>IFSC</label><input name="ifsc"></div>
+      </div>
+      <div class="form-row three">
+        <div><label>Mobile</label><input name="mobile"></div>
+        <div><label>Date of superannuation</label><input type="date" name="retirementDate"></div>
+        <div><label>Status</label>
+          <select name="status"><option>Working</option><option>On Leave</option><option>Under Suspension</option><option>Transferred</option><option>Retired</option></select></div>
+      </div>
+      <div class="btn-row">
+        <button class="btn" value="save" id="btnSave">Save</button>
+        <button class="btn ghost" value="cancel" formnovalidate>Cancel</button>
+        <span style="flex:1"></span>
+        <button class="btn danger" value="delete" id="btnDel" formnovalidate type="button">Delete</button>
+      </div>
+    </form>
+  </dialog>
+</div>
+
+<script src="assets/app.js"></script>
+<script>
+(function(){
+  const A = window.App, DB = A.DB;
+  A.chrome("establishment.html");
+  const tbody = A.$("#tbl tbody");
+  const dlg = A.$("#dlg"), frm = A.$("#frm");
+
+  const cadres = [...new Set(DB.employees.map(e=>e.cadre))].sort();
+  A.$("#fCadre").insertAdjacentHTML("beforeend", cadres.map(c=>`<option>${c}</option>`).join(""));
+
+  function list(){
+    const q = A.$("#q").value.toLowerCase();
+    const fc = A.$("#fCadre").value, fs = A.$("#fStatus").value;
+    let rows = DB.employees.filter(e=>{
+      if(fc && e.cadre!==fc) return false;
+      if(fs && e.status!==fs) return false;
+      if(q && !(e.name+" "+e.empNo+" "+e.school).toLowerCase().includes(q)) return false;
+      return true;
+    });
+    if(!rows.length){ tbody.innerHTML = `<tr><td colspan="9" class="empty">No matching employees.</td></tr>`; return; }
+    tbody.innerHTML = rows.map(e=>`
+      <tr>
+        <td>${A.esc(e.empNo)}</td>
+        <td>${A.esc(e.name)}<div class="small muted">${A.esc(e.pan||"")} &middot; ${A.esc(e.mobile||"")}</div></td>
+        <td>${A.esc(e.designation)}<div class="small muted">${A.esc(e.cadre)} &middot; Grp ${A.esc(e.group||"-")}</div></td>
+        <td>${A.esc(e.school)}<div class="small muted">${A.esc(e.mandal||"")}</div></td>
+        <td>${A.esc(e.scale||"-")}</td>
+        <td class="num">${A.num(e.basic)}</td>
+        <td>${(e.cpsNo&&!e.gpfNo)?'<span class="badge blue">CPS</span>':'<span class="badge green">GPF</span>'}</td>
+        <td><span class="badge ${e.status==="Working"?"green":e.status==="Retired"?"grey":"amber"}">${A.esc(e.status)}</span></td>
+        <td><button class="btn ghost small" data-edit="${e.id}">Edit</button></td>
+      </tr>`).join("");
+    tbody.querySelectorAll("[data-edit]").forEach(b=>b.onclick=()=>open(b.dataset.edit));
+  }
+
+  function open(id){
+    const e = id ? DB.employees.find(x=>x.id===id) : null;
+    A.$("#dlgTitle").textContent = e ? "Edit — "+e.name : "Add employee";
+    A.$("#btnDel").style.display = e ? "" : "none";
+    frm.reset();
+    if(e) for(const k in e){ const f = frm.elements[k]; if(f) f.value = e[k]; }
+    frm.elements.id.value = e ? e.id : "";
+    dlg.showModal();
+  }
+
+  A.$("#btnNew").onclick = ()=>open(null);
+  A.$("#btnDel").onclick = ()=>{
+    const id = frm.elements.id.value;
+    if(!id) return;
+    if(!A.confirmBox("Remove this employee from the master? Existing bills already generated are not affected.")) return;
+    A.commit(db=>{ db.employees = db.employees.filter(x=>x.id!==id); });
+    dlg.close(); list(); A.toast("Employee removed");
+  };
+
+  frm.addEventListener("submit",(ev)=>{
+    if(ev.submitter && ev.submitter.value!=="save") return;
+    const o = A.formData(frm);
+    o.hraPct = Number(o.hraPct); o.cca = Number(o.cca)||0; o.basic = Number(o.basic)||0;
+    A.commit(db=>{
+      if(o.id){ const i = db.employees.findIndex(x=>x.id===o.id); db.employees[i] = Object.assign(db.employees[i], o); }
+      else { o.id = A.uid("E"); db.employees.push(o); }
+    });
+    list(); A.toast("Saved","ok");
+  });
+
+  A.$("#btnCsv").onclick = ()=>{
+    const head = ["EmpNo","Name","Designation","Cadre","School","Mandal","DOB","DOJ","Scale","Basic","HRA%","Scheme","PAN","TreasuryID","Bank","Account","IFSC","Status"];
+    const rows = DB.employees.map(e=>[e.empNo,e.name,e.designation,e.cadre,e.school,e.mandal,e.dob,e.doj,e.scale,e.basic,e.hraPct,(e.cpsNo&&!e.gpfNo)?"CPS":"GPF",e.pan,e.treasuryId,e.bank,e.account,e.ifsc,e.status]);
+    A.downloadFile("establishment-"+A.today()+".csv", A.toCSV([head,...rows]), "text/csv");
+  };
+
+  ["q","fCadre","fStatus"].forEach(id=>A.$("#"+id).addEventListener("input",list));
+  list();
+})();
+</script>
+</body>
+</html>

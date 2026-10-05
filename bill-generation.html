@@ -1,0 +1,429 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bill Generation &middot; DEO Telangana Office Suite</title>
+<link rel="stylesheet" href="assets/styles.css">
+<link rel="stylesheet" href="assets/print.css">
+</head>
+<body>
+<div class="wrap">
+  <div class="page-title"><h2>Bill Generation</h2></div>
+  <div class="crumbs">Establishment pay bills with schedules, and contingent / T.A. / medical / other bills in treasury format with voucher numbers, pass order and amount in words.</div>
+
+  <div class="tabs">
+    <button data-v="list" class="active">All bills</button>
+    <button data-v="pay">New pay bill</button>
+    <button data-v="other">New contingent / other bill</button>
+  </div>
+
+  <!-- ============ LIST ============ -->
+  <section id="v-list">
+    <div class="pill-filter">
+      <input id="q" placeholder="Search title / voucher / payee" style="max-width:320px">
+      <select id="fType" style="max-width:220px"><option value="">All types</option></select>
+      <select id="fStatus" style="max-width:160px"><option value="">All status</option><option>Prepared</option><option>Passed</option><option>Paid</option><option>Returned</option></select>
+      <span style="flex:1"></span>
+      <button class="btn secondary small" id="btnCsv">Export CSV</button>
+    </div>
+    <div class="table-scroll">
+      <table class="data" id="tbl"><thead><tr>
+        <th>Voucher No.</th><th>Date</th><th>Type</th><th>Title / Payee</th>
+        <th class="num">Gross</th><th class="num">Deductions</th><th class="num">Net</th><th>Status</th><th></th>
+      </tr></thead><tbody></tbody></table>
+    </div>
+    <div class="card" id="totals" style="margin-top:16px"></div>
+  </section>
+
+  <!-- ============ PAY BILL ============ -->
+  <section id="v-pay" style="display:none">
+    <div class="card">
+      <div class="form-row three">
+        <div><label>Pay of month</label><input type="month" id="pbMonth"></div>
+        <div><label>DA %</label><input type="number" id="pbDa" step="0.001"></div>
+        <div><label>Bill title</label><input id="pbTitle" placeholder="Establishment Pay Bill — O/o the DEO"></div>
+      </div>
+      <div class="form-row three">
+        <div><label>Head of account</label><input id="pbHead" value="2202-01-101-... / Salaries"></div>
+        <div><label>Group / unit filter</label>
+          <select id="pbGroup"><option value="">All employees</option></select></div>
+        <div style="display:flex;align-items:flex-end"><button class="btn secondary" id="pbSelAll">Select all shown</button></div>
+      </div>
+      <div class="table-scroll" style="max-height:320px;overflow:auto">
+        <table class="data" id="pbEmps"><thead><tr>
+          <th style="width:34px"></th><th>Employee</th><th>Designation</th><th class="num">Basic</th><th class="num">Gross</th><th class="num">Deductions</th><th class="num">Net</th>
+        </tr></thead><tbody></tbody></table>
+      </div>
+      <div class="btn-row">
+        <button class="btn" id="pbGen">Generate pay bill</button>
+        <span class="muted small" id="pbCount"></span>
+      </div>
+    </div>
+    <div id="pbOut" style="display:none;margin-top:16px">
+      <div class="doc-toolbar no-print">
+        <button class="btn small" id="pbSave">Save pay bill</button>
+        <button class="btn secondary small" id="pbPrint">Print / PDF</button>
+      </div>
+      <div class="doc" id="pbDoc"></div>
+    </div>
+  </section>
+
+  <!-- ============ OTHER BILL ============ -->
+  <section id="v-other" style="display:none">
+    <div class="card">
+      <form id="ofrm">
+        <input type="hidden" name="id">
+        <div class="form-row three">
+          <div><label>Bill type</label>
+            <select name="type"><option>Contingent Bill</option><option>Travelling Allowance Bill</option><option>Medical Reimbursement</option><option>MDM Cooking Cost</option><option>Scholarship / Incentive</option><option>Grant-in-Aid</option><option>Other Bill</option></select></div>
+          <div><label>Date</label><input type="date" name="date" required></div>
+          <div><label>Financial Year</label><input name="fy" placeholder="auto"></div>
+        </div>
+        <div class="form-row">
+          <div><label>Bill title / purpose</label><input name="title" required></div>
+          <div><label>Payee</label><input name="payee" required></div>
+        </div>
+        <div class="form-row three">
+          <div><label>Head of account</label><input name="head" value="2202-..."></div>
+          <div><label>Gross amount (₹)</label><input type="number" name="gross" min="0" step="0.01" required></div>
+          <div><label>Deductions (₹)</label><input type="number" name="deductions" min="0" step="0.01" value="0"></div>
+        </div>
+        <div class="form-row">
+          <div><label>Sub-vouchers / particulars (one per line: description | amount)</label>
+            <textarea name="items" placeholder="Stationery purchase — M/s ... | 4200&#10;Xerox charges | 860"></textarea></div>
+          <div><label>Narration for the pass order</label><textarea name="narration"></textarea></div>
+        </div>
+        <div class="form-row three">
+          <div><label>Sanction reference</label><input name="sourceRef" placeholder="Proc. / Note no."></div>
+          <div><label>Prepared by</label><input name="preparedBy" value="Senior Assistant (Cash)"></div>
+          <div><label>Passing authority</label><input name="passedBy" value="District Educational Officer"></div>
+        </div>
+        <div class="btn-row">
+          <button class="btn" type="submit">Save &amp; open bill</button>
+          <button class="btn ghost" type="button" id="oCancel">Cancel</button>
+        </div>
+      </form>
+    </div>
+  </section>
+
+  <!-- ============ RECORD ============ -->
+  <section id="v-rec" style="display:none">
+    <button class="btn ghost small no-print" id="backBtn">&larr; Back</button>
+    <div class="doc-toolbar no-print" style="margin-top:12px">
+      <select id="stSel" style="max-width:150px"><option>Prepared</option><option>Passed</option><option>Paid</option><option>Returned</option></select>
+      <button class="btn ghost small" id="recEdit">Edit</button>
+      <button class="btn danger small" id="recDel">Delete</button>
+      <button class="btn secondary small" id="recPrint">Print / PDF</button>
+    </div>
+    <div class="doc" id="recDoc"></div>
+  </section>
+</div>
+
+<script src="assets/app.js"></script>
+<script>
+(function(){
+  const A=window.App, DB=window.App.DB, M=DB.meta;
+  A.chrome("bill-generation.html");
+
+  /* unify bills: single bills from DB.bills + pay bills from DB.payBills(kind=paybill) */
+  function allBills(){
+    const a=DB.bills.map(b=>Object.assign({_src:"bill"},b));
+    const p=DB.payBills.filter(x=>x.kind==="paybill").map(b=>Object.assign({_src:"paybill"},b));
+    return a.concat(p).sort((x,y)=>String(y.date).localeCompare(x.date));
+  }
+  const TYPES=["Establishment Pay Bill","Contingent Bill","Travelling Allowance Bill","Medical Reimbursement","MDM Cooking Cost","Scholarship / Incentive","Grant-in-Aid","Other Bill"];
+  A.$("#fType").insertAdjacentHTML("beforeend",TYPES.map(t=>`<option>${t}</option>`).join(""));
+
+  const views={list:A.$("#v-list"),pay:A.$("#v-pay"),other:A.$("#v-other"),rec:A.$("#v-rec")};
+  function show(v){for(const k in views)views[k].style.display=k===v?"":"none";}
+  function syncTop(i){A.$$(".tabs button[data-v]").forEach((x,j)=>x.classList.toggle("active",j===i));}
+  A.$$(".tabs button[data-v]").forEach(b=>b.onclick=()=>{
+    syncTop(["list","pay","other"].indexOf(b.dataset.v));
+    if(b.dataset.v==="list")render();
+    if(b.dataset.v==="pay")pbInit();
+    if(b.dataset.v==="other")oReset();
+    show(b.dataset.v);
+  });
+
+  /* ---------- LIST ---------- */
+  function render(){
+    const q=A.$("#q").value.toLowerCase(),ft=A.$("#fType").value,fs=A.$("#fStatus").value;
+    let rows=allBills().filter(b=>{
+      if(ft&&b.type!==ft)return false;
+      if(fs&&(b.status||"Prepared")!==fs)return false;
+      if(q&&!((b.title+" "+b.voucherNo+" "+(b.payee||"")).toLowerCase().includes(q)))return false;
+      return true;
+    });
+    const tb=A.$("#tbl tbody");
+    if(!rows.length){tb.innerHTML=`<tr><td colspan="9" class="empty">No bills yet. Create a pay bill or contingent bill, or send items from Medical / MDM.</td></tr>`;A.$("#totals").innerHTML="";return;}
+    tb.innerHTML=rows.map(b=>`<tr>
+      <td>${A.esc(b.voucherNo)}</td><td>${A.fmtDate(b.date)}</td><td>${A.esc(b.type)}</td>
+      <td>${A.esc(b.title)}<div class="small muted">${A.esc(b.payee||"")}</div></td>
+      <td class="num">${A.money(b.gross)}</td><td class="num">${A.money(b.deductions||0)}</td>
+      <td class="num">${A.money(b.net!=null?b.net:(b.gross-(b.deductions||0)))}</td>
+      <td><span class="badge ${(b.status==="Passed"||b.status==="Paid")?"green":b.status==="Returned"?"red":"amber"}">${b.status||"Prepared"}</span></td>
+      <td><button class="btn ghost small" data-open="${b._src}:${b.id}">Open</button></td></tr>`).join("");
+    tb.querySelectorAll("[data-open]").forEach(x=>x.onclick=()=>openRec(x.dataset.open));
+    const g=rows.reduce((a,b)=>a+Number(b.gross||0),0);
+    const d=rows.reduce((a,b)=>a+Number(b.deductions||0),0);
+    A.$("#totals").innerHTML=`<div class="grid cols-3">
+      ${tile("Gross (filtered)",A.money(g))}${tile("Deductions",A.money(d))}${tile("Net payable",A.money(g-d))}</div>`;
+  }
+  function tile(l,n){return `<div class="card"><div class="kpi"><span class="n">${n}</span><span class="l">${l}</span></div></div>`;}
+  ["q","fType","fStatus"].forEach(id=>A.$("#"+id).addEventListener("input",render));
+
+  /* ---------- PAY BILL ---------- */
+  const groups=[...new Set(DB.employees.map(e=>e.group).filter(Boolean))].sort();
+  A.$("#pbGroup").insertAdjacentHTML("beforeend",groups.map(g=>`<option value="${g}">Group ${g}</option>`).join(""));
+  let pbRows=[];
+  function pbCompute(){
+    const da=A.$("#pbDa").value===""?undefined:Number(A.$("#pbDa").value);
+    const gf=A.$("#pbGroup").value;
+    pbRows=DB.employees.filter(e=>e.status==="Working"&&(!gf||e.group===gf)).map(e=>{
+      const p=A.computePay(e,{daPct:da});
+      return {e,p,sel:true};
+    });
+  }
+  function pbRender(){
+    const tb=A.$("#pbEmps tbody");
+    tb.innerHTML=pbRows.map((r,i)=>`<tr>
+      <td><input type="checkbox" data-i="${i}" ${r.sel?"checked":""} style="width:auto"></td>
+      <td>${A.esc(r.e.name)}<div class="small muted">${A.esc(r.e.empNo)}</div></td>
+      <td>${A.esc(r.e.designation)}</td>
+      <td class="num">${A.money(r.p.basic)}</td><td class="num">${A.money(r.p.gross)}</td>
+      <td class="num">${A.money(r.p.totalDed)}</td><td class="num">${A.money(r.p.net)}</td></tr>`).join("")
+      || `<tr><td colspan="7" class="empty">No working employees for this filter.</td></tr>`;
+    tb.querySelectorAll("input[data-i]").forEach(c=>c.onchange=()=>{pbRows[c.dataset.i].sel=c.checked;pbCount();});
+    pbCount();
+  }
+  function pbCount(){
+    const s=pbRows.filter(r=>r.sel);
+    A.$("#pbCount").textContent=s.length+" selected · Net "+A.money(s.reduce((a,b)=>a+b.p.net,0));
+  }
+  function pbInit(){
+    A.$("#pbMonth").value=A.$("#pbMonth").value||new Date().toISOString().slice(0,7);
+    A.$("#pbDa").value=A.rates().daPct;
+    A.$("#pbTitle").value=A.$("#pbTitle").value||("Establishment Pay Bill — "+M.office+", "+M.district);
+    pbCompute();pbRender();
+    A.$("#pbOut").style.display="none";
+  }
+  A.$("#pbDa").addEventListener("input",()=>{pbCompute();pbRender();});
+  A.$("#pbGroup").addEventListener("change",()=>{pbCompute();pbRender();});
+  A.$("#pbSelAll").onclick=()=>{pbRows.forEach(r=>r.sel=true);pbRender();};
+
+  let pbLast=null;
+  A.$("#pbGen").onclick=()=>{
+    const sel=pbRows.filter(r=>r.sel);
+    if(!sel.length){A.toast("Select at least one employee","err");return;}
+    const month=A.$("#pbMonth").value, mm=month.split("-");
+    const mName=A.MONTHS[Number(mm[1])-1]+" "+mm[0];
+    const sum=(f)=>sel.reduce((a,r)=>a+r.p[f],0);
+    const totals={
+      basic:sum("basic"),da:sum("da"),hra:sum("hra"),cca:sum("cca"),otherEarn:sum("otherEarn"),gross:sum("gross"),
+      cps:sum("cps"),gpf:sum("gpf"),pt:sum("pt"),gis:sum("gis"),apgli:sum("apgli"),it:sum("it"),otherDed:sum("otherDed"),
+      totalDed:sum("totalDed"),net:sum("net")
+    };
+    pbLast={month,mName,sel,totals,title:A.$("#pbTitle").value,head:A.$("#pbHead").value,daPct:A.$("#pbDa").value};
+    pbDoc();
+    A.$("#pbOut").style.display="";
+  };
+
+  function sched(title,rows,total){
+    if(!rows.length)return "";
+    return `<table class="doc-tbl"><thead><tr><th colspan="3">SCHEDULE — ${title}</th></tr>
+      <tr><th style="width:40px">Sl.</th><th>Name / Emp. No.</th><th class="right">Amount</th></tr></thead>
+      <tbody>${rows.map((r,i)=>`<tr><td>${i+1}</td><td>${A.esc(r.n)}</td><td class="right">${A.money(r.a)}</td></tr>`).join("")}
+      <tr><td colspan="2"><b>Total</b></td><td class="right"><b>${A.money(total)}</b></td></tr></tbody></table>`;
+  }
+  function pbDoc(){
+    const {mName,sel,totals,title,head,daPct}=pbLast;
+    const inner=sel.map((r,i)=>`<tr>
+      <td>${i+1}</td><td>${A.esc(r.e.name)}<div class="small">${A.esc(r.e.designation)}, ${A.esc(r.e.empNo)}</div></td>
+      <td class="right">${A.money(r.p.basic)}</td><td class="right">${A.money(r.p.da)}</td>
+      <td class="right">${A.money(r.p.hra)}</td><td class="right">${A.money(r.p.cca+r.p.otherEarn)}</td>
+      <td class="right">${A.money(r.p.gross)}</td><td class="right">${A.money(r.p.totalDed)}</td>
+      <td class="right">${A.money(r.p.net)}</td></tr>`).join("");
+    const mk=(f,lbl)=>sel.filter(r=>r.p[f]>0).map(r=>({n:r.e.name+" ("+r.e.empNo+")",a:r.p[f]}));
+    A.$("#pbDoc").innerHTML=`
+      <div class="doc-head"><h3>${A.esc(M.office).toUpperCase()}, ${A.esc(M.district).toUpperCase()}</h3>
+      <p>${A.esc(title).toUpperCase()}</p><p>PAY OF ${mName.toUpperCase()}</p></div><hr>
+      <div class="ref-line"><span><b>D.D.O. Code:</b> ${A.esc(M.ddoCode)}</span><span><b>Treasury:</b> ${A.esc(M.treasury)}</span></div>
+      <div class="ref-line"><span><b>Head of account:</b> ${A.esc(head)}</span><span><b>D.A. @</b> ${daPct}%</span></div>
+      <table class="doc-tbl">
+        <thead><tr><th>Sl.</th><th>Name &amp; Designation</th><th class="right">Pay</th><th class="right">D.A.</th><th class="right">H.R.A.</th><th class="right">CCA/Other</th><th class="right">Gross</th><th class="right">Deductions</th><th class="right">Net</th></tr></thead>
+        <tbody>${inner}
+        <tr><td colspan="2"><b>TOTAL (${sel.length} employees)</b></td>
+          <td class="right"><b>${A.money(totals.basic)}</b></td><td class="right"><b>${A.money(totals.da)}</b></td>
+          <td class="right"><b>${A.money(totals.hra)}</b></td><td class="right"><b>${A.money(totals.cca+totals.otherEarn)}</b></td>
+          <td class="right"><b>${A.money(totals.gross)}</b></td><td class="right"><b>${A.money(totals.totalDed)}</b></td>
+          <td class="right"><b>${A.money(totals.net)}</b></td></tr>
+        </tbody>
+      </table>
+      <table class="doc-tbl">
+        <thead><tr><th colspan="2">ABSTRACT</th></tr></thead><tbody>
+        <tr><td>Gross amount of the bill</td><td class="right">${A.money(totals.gross)}</td></tr>
+        <tr><td>Less: Total deductions (as per schedules)</td><td class="right">${A.money(totals.totalDed)}</td></tr>
+        <tr><td><b>Net amount payable (by bank transfer to employees)</b></td><td class="right"><b>${A.money(totals.net)}</b></td></tr>
+        <tr><td>Net amount in words</td><td class="right">${A.esc(A.amountInWords(totals.net))}</td></tr>
+        </tbody>
+      </table>
+      ${sched("C.P.S. / N.P.S. (Employee share)",mk("cps"),totals.cps)}
+      ${sched("G.P.F. Subscription",mk("gpf"),totals.gpf)}
+      ${sched("A.P.G.L.I.",mk("apgli"),totals.apgli)}
+      ${sched("Group Insurance Scheme",mk("gis"),totals.gis)}
+      ${sched("Professional Tax",mk("pt"),totals.pt)}
+      ${sched("Income Tax (T.D.S.)",mk("it"),totals.it)}
+      ${sched("Other recoveries",mk("otherDed"),totals.otherDed)}
+      <p style="margin-top:14px"><b>Certificate:</b> Certified that the pay and allowances claimed in this bill are due to the employees for the period, that they were on duty except as noted in the leave statement, that the deductions have been correctly worked out and will be remitted to the respective accounts, and that the previous month's bill has been drawn and disbursed.</p>
+      <div class="ref-line" style="margin-top:34px">
+        <span>Prepared by: Senior Assistant (Cash)</span>
+        <span>Verified: Superintendent</span>
+      </div>
+      <div class="sign-block" style="margin-top:26px"><div class="desig">Drawing &amp; Disbursing Officer</div><div>${A.esc(M.officer)}, ${A.esc(M.district)}</div></div>
+      <hr>
+      <p class="small"><b>Pass Order:</b> Passed for ${A.money(totals.net)} (${A.esc(A.amountInWords(totals.net))}) for payment. Token No. __________ dt. __________.</p>`;
+  }
+  A.$("#pbPrint").onclick=()=>window.print();
+  A.$("#pbSave").onclick=()=>{
+    if(!pbLast)return;
+    A.commit(db=>{
+      const v=A.nextCounter("payBill");
+      db.payBills.push({
+        id:A.uid("PB"),kind:"paybill",date:A.today(),month:pbLast.month,
+        voucherNo:"PB-"+v+"/"+A.fyOf(),type:"Establishment Pay Bill",
+        title:pbLast.title+" — "+pbLast.mName,payee:pbLast.sel.length+" employees",
+        head:pbLast.head,gross:pbLast.totals.gross,deductions:pbLast.totals.totalDed,net:pbLast.totals.net,
+        netTotal:pbLast.totals.net,status:"Prepared",
+        lines:pbLast.sel.map(r=>({empId:r.e.id,name:r.e.name,empNo:r.e.empNo,designation:r.e.designation,p:r.p})),
+        totals:pbLast.totals,daPct:pbLast.daPct
+      });
+    });
+    A.toast("Pay bill saved to register","ok");
+    render();
+  };
+
+  /* ---------- OTHER BILL ---------- */
+  const ofrm=A.$("#ofrm");
+  function oReset(){ofrm.reset();ofrm.elements.date.value=A.today();ofrm.elements.fy.value=A.fyOf();}
+  A.$("#oCancel").onclick=()=>{render();show("list");syncTop(0);};
+  ofrm.addEventListener("submit",e=>{
+    e.preventDefault();
+    const o=A.formData(ofrm);
+    o.fy=o.fy||A.fyOf(o.date);
+    o.net=Number(o.gross)-Number(o.deductions||0);
+    A.commit(db=>{
+      if(o.id){const i=db.bills.findIndex(x=>x.id===o.id);o.voucherNo=db.bills[i].voucherNo;o.status=db.bills[i].status;db.bills[i]=Object.assign(db.bills[i],o);}
+      else{
+        const v=A.nextCounter("billVoucher");
+        o.id=A.uid("BILL");o.status="Prepared";o.voucherNo="V-"+v+"/"+o.fy;
+        db.bills.push(o);
+      }
+    });
+    A.toast("Bill saved","ok");
+    openRec("bill:"+o.id);
+  });
+
+  /* ---------- RECORD ---------- */
+  let cur=null,curSrc=null;
+  A.$("#backBtn").onclick=()=>{render();show("list");syncTop(0);};
+  function openRec(key){
+    const [src,id]=key.split(":");
+    curSrc=src;
+    cur=(src==="bill"?DB.bills:DB.payBills).find(x=>x.id===id);
+    if(!cur)return;
+    A.$("#stSel").value=cur.status||"Prepared";
+    A.$("#recEdit").style.display=src==="bill"?"":"none";
+    recDoc();show("rec");
+  }
+  A.$("#stSel").addEventListener("change",e=>{
+    A.commit(db=>{ (curSrc==="bill"?db.bills:db.payBills).find(x=>x.id===cur.id).status=e.target.value; });
+    cur.status=e.target.value;A.toast("Status updated");
+  });
+  A.$("#recDel").onclick=()=>{
+    if(!A.confirmBox("Delete this bill?"))return;
+    A.commit(db=>{
+      if(curSrc==="bill")db.bills=db.bills.filter(x=>x.id!==cur.id);
+      else db.payBills=db.payBills.filter(x=>x.id!==cur.id);
+    });
+    render();show("list");syncTop(0);
+  };
+  A.$("#recEdit").onclick=()=>{
+    if(curSrc!=="bill")return;
+    oReset();
+    for(const k in cur){const f=ofrm.elements[k];if(f)f.value=cur[k];}
+    show("other");syncTop(2);
+  };
+  A.$("#recPrint").onclick=()=>window.print();
+
+  function recDoc(){
+    if(curSrc==="paybill"){ recPayBill(); return; }
+    const b=cur;
+    const items=(b.items||"").split("\n").map(l=>l.trim()).filter(Boolean).map(l=>{
+      const p=l.split("|"); return {d:(p[0]||"").trim(), a:Number((p[1]||"0").replace(/[^\d.]/g,""))||0};
+    });
+    const itemsTotal=items.reduce((a,x)=>a+x.a,0);
+    A.$("#recDoc").innerHTML=`
+      <div class="doc-head"><h3>${A.esc(M.office).toUpperCase()}, ${A.esc(M.district).toUpperCase()}</h3>
+      <p>${A.esc(b.type).toUpperCase()}</p></div><hr>
+      <div class="ref-line"><span><b>Voucher No.:</b> ${A.esc(b.voucherNo)}</span><span><b>Date:</b> ${A.fmtDate(b.date)}</span></div>
+      <div class="ref-line"><span><b>D.D.O. Code:</b> ${A.esc(M.ddoCode)}</span><span><b>F.Y.:</b> ${A.esc(b.fy||A.fyOf(b.date))}</span></div>
+      <div class="ref-line"><span><b>Head of account:</b> ${A.esc(b.head||"")}</span><span><b>Status:</b> ${b.status||"Prepared"}</span></div>
+      <div class="subject"><b>Particulars:</b> ${A.esc(b.title)}</div>
+      <div class="subject"><b>Payee:</b> ${A.esc(b.payee)}</div>
+      ${b.sourceRef?`<div class="subject"><b>Sanction ref.:</b> ${A.esc(b.sourceRef)}</div>`:""}
+      ${items.length?`<table class="doc-tbl"><thead><tr><th style="width:44px">Sl.</th><th>Sub-voucher / particulars</th><th class="right">Amount</th></tr></thead>
+        <tbody>${items.map((x,i)=>`<tr><td>${i+1}</td><td>${A.esc(x.d)}</td><td class="right">${A.money(x.a)}</td></tr>`).join("")}
+        <tr><td colspan="2"><b>Total of sub-vouchers</b></td><td class="right"><b>${A.money(itemsTotal)}</b></td></tr></tbody></table>`:""}
+      <table class="doc-tbl">
+        <tr><td style="width:60%">Gross amount of the bill</td><td class="right">${A.money(b.gross)}</td></tr>
+        <tr><td>Less: Deductions / recoveries (I.T., penalties, etc.)</td><td class="right">${A.money(b.deductions||0)}</td></tr>
+        <tr><td><b>Net amount payable</b></td><td class="right"><b>${A.money(b.net!=null?b.net:b.gross-(b.deductions||0))}</b></td></tr>
+        <tr><td>(Amount in words)</td><td class="right">${A.esc(A.amountInWords(b.net!=null?b.net:b.gross-(b.deductions||0)))}</td></tr>
+      </table>
+      <p><b>Certificate:</b> Certified that the expenditure claimed in this bill is for bona fide public purpose, that it is covered by sanction${b.sourceRef?(" vide "+A.esc(b.sourceRef)):""}, that the sub-vouchers are attached / retained as required, that the articles have been received and taken to stock where applicable, and that the amount has not been drawn previously.</p>
+      ${b.narration?`<p><b>Narration:</b> ${A.esc(b.narration)}</p>`:""}
+      <div class="ref-line" style="margin-top:30px"><span>Prepared by: ${A.esc(b.preparedBy||"Senior Assistant")}</span><span>Verified: Superintendent</span></div>
+      <div class="sign-block" style="margin-top:24px"><div class="desig">Drawing &amp; Disbursing Officer</div><div>${A.esc(M.officer)}, ${A.esc(M.district)}</div></div>
+      <hr>
+      <p class="small"><b>Pass Order:</b> Passed for ${A.money(b.net!=null?b.net:b.gross-(b.deductions||0))} (${A.esc(A.amountInWords(b.net!=null?b.net:b.gross-(b.deductions||0)))}) for payment by ${A.esc(b.passedBy||"District Educational Officer")}. Token No. ________ dt. ________.</p>`;
+  }
+
+  function recPayBill(){
+    const b=cur, t=b.totals||{};
+    const lines=(b.lines||[]).map((r,i)=>`<tr>
+      <td>${i+1}</td><td>${A.esc(r.name)}<div class="small">${A.esc(r.designation)}, ${A.esc(r.empNo)}</div></td>
+      <td class="right">${A.money(r.p.basic)}</td><td class="right">${A.money(r.p.da)}</td>
+      <td class="right">${A.money(r.p.hra)}</td><td class="right">${A.money(r.p.gross)}</td>
+      <td class="right">${A.money(r.p.totalDed)}</td><td class="right">${A.money(r.p.net)}</td></tr>`).join("");
+    A.$("#recDoc").innerHTML=`
+      <div class="doc-head"><h3>${A.esc(M.office).toUpperCase()}, ${A.esc(M.district).toUpperCase()}</h3>
+      <p>${A.esc(b.title).toUpperCase()}</p></div><hr>
+      <div class="ref-line"><span><b>Voucher No.:</b> ${A.esc(b.voucherNo)}</span><span><b>Date:</b> ${A.fmtDate(b.date)}</span></div>
+      <div class="ref-line"><span><b>Head:</b> ${A.esc(b.head||"")}</span><span><b>D.A. @</b> ${b.daPct}%</span></div>
+      <table class="doc-tbl"><thead><tr><th>Sl.</th><th>Name &amp; Designation</th><th class="right">Pay</th><th class="right">D.A.</th><th class="right">H.R.A.</th><th class="right">Gross</th><th class="right">Deductions</th><th class="right">Net</th></tr></thead>
+        <tbody>${lines}
+        <tr><td colspan="2"><b>TOTAL</b></td><td class="right"><b>${A.money(t.basic)}</b></td><td class="right"><b>${A.money(t.da)}</b></td>
+        <td class="right"><b>${A.money(t.hra)}</b></td><td class="right"><b>${A.money(t.gross)}</b></td>
+        <td class="right"><b>${A.money(t.totalDed)}</b></td><td class="right"><b>${A.money(t.net)}</b></td></tr></tbody></table>
+      <table class="doc-tbl">
+        <tr><td style="width:60%">Gross</td><td class="right">${A.money(t.gross)}</td></tr>
+        <tr><td>Less: deductions</td><td class="right">${A.money(t.totalDed)}</td></tr>
+        <tr><td><b>Net payable</b></td><td class="right"><b>${A.money(t.net)}</b></td></tr>
+        <tr><td>(In words)</td><td class="right">${A.esc(A.amountInWords(t.net))}</td></tr>
+      </table>
+      <div class="sign-block" style="margin-top:24px"><div class="desig">Drawing &amp; Disbursing Officer</div><div>${A.esc(M.officer)}, ${A.esc(M.district)}</div></div>
+      <hr><p class="small"><b>Pass Order:</b> Passed for ${A.money(t.net)} (${A.esc(A.amountInWords(t.net))}).</p>`;
+  }
+
+  A.$("#btnCsv").onclick=()=>{
+    const head=["VoucherNo","Date","Type","Title","Payee","Head","Gross","Deductions","Net","Status"];
+    const rows=allBills().map(b=>[b.voucherNo,b.date,b.type,b.title,b.payee,b.head,b.gross,b.deductions||0,b.net!=null?b.net:b.gross-(b.deductions||0),b.status||"Prepared"]);
+    A.downloadFile("bills-"+A.today()+".csv",A.toCSV([head,...rows]),"text/csv");
+  };
+
+  render();
+})();
+</script>
+</body>
+</html>

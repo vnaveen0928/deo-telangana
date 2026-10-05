@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dashboard &middot; DEO Telangana Office Suite</title>
+<link rel="stylesheet" href="assets/styles.css">
+<link rel="stylesheet" href="assets/print.css">
+</head>
+<body>
+<div class="wrap">
+  <div class="page-title"><h2>Office Dashboard</h2></div>
+  <div class="crumbs" id="crumbs"></div>
+
+  <div class="grid cols-4" id="kpis"></div>
+
+  <div class="divider"></div>
+  <h3 style="color:var(--gov-green-dark)">Work Sections</h3>
+  <div class="grid cols-3" id="modules"></div>
+
+  <div class="divider"></div>
+  <div class="grid cols-2">
+    <div class="card">
+      <h3>Recent activity</h3>
+      <div class="table-scroll">
+        <table class="data" id="recent"><thead><tr><th>Date</th><th>Section</th><th>Reference</th><th>Particulars</th><th class="num">Amount</th></tr></thead><tbody></tbody></table>
+      </div>
+    </div>
+    <div class="card">
+      <h3>Pending / due for action</h3>
+      <ul id="pending" style="margin:0;padding-left:18px;font-size:13.5px;line-height:1.9"></ul>
+    </div>
+  </div>
+</div>
+
+<script src="assets/app.js"></script>
+<script>
+(function(){
+  const A = window.App, DB = A.DB;
+  A.chrome("index.html");
+  A.$("#crumbs").textContent = DB.meta.office + ", " + DB.meta.district + "  |  Station: " + DB.meta.station + "  |  Current F.Y. " + A.fyOf();
+
+  /* ---- KPIs ---- */
+  const medPending = DB.medicalBills.filter(b=>b.status!=="Sanctioned"&&b.status!=="Paid").length;
+  const kpis = [
+    ["Employees on rolls", A.num(DB.employees.length)],
+    ["Medical claims (F.Y.)", A.num(DB.medicalBills.filter(b=>A.fyOf(b.date)===A.fyOf()).length)],
+    ["MDM indents (F.Y.)", A.num(DB.mdmIndents.filter(b=>A.fyOf(b.month+"-01")===A.fyOf()).length)],
+    ["Bills generated (F.Y.)", A.num(DB.bills.filter(b=>A.fyOf(b.date)===A.fyOf()).length)],
+  ];
+  A.$("#kpis").innerHTML = kpis.map(([l,n])=>`<div class="card"><div class="kpi"><span class="n">${n}</span><span class="l">${l}</span></div></div>`).join("");
+
+  /* ---- module cards ---- */
+  const mods = [
+    ["medical-bills.html","🩺","Medical Reimbursement","Raise Note &amp; Draft for medical reimbursement claims of employees under T.S. Medical Attendance Rules; track sanction and payment."],
+    ["mid-day-meals.html","🍛","Mid Day Meals","School-wise monthly indents, cooking cost &amp; honorarium bills, rice drawal and utilisation certificates."],
+    ["service-matters.html","🗂️","Service Matters","Increments, promotions, transfers, leave, pay fixation, pension, disciplinary and other proceedings of teachers &amp; staff."],
+    ["payslips.html","📄","Pay Slips","Generate monthly pay slips for individual employees with RPS-2020 style earnings and recoveries."],
+    ["bill-generation.html","🧾","Bill Generation","Prepare pay bills, contingent / medical / T.A. bills and salary abstracts in treasury format with voucher numbers."],
+    ["establishment.html","👥","Establishment","Master data of teaching and ministerial staff — service particulars, pay scale, treasury &amp; bank details."],
+  ];
+  A.$("#modules").innerHTML = mods.map(([h,i,t,d])=>
+    `<a class="card link-card" href="${h}"><div class="ico">${i}</div><h3>${t}</h3><p>${d}</p></a>`).join("");
+
+  /* ---- recent activity ---- */
+  const rows = [];
+  DB.medicalBills.forEach(b=>rows.push([b.date,"Medical",b.noteNo,b.empName+" — "+(b.nature||"reimbursement"),b.claimed]));
+  DB.mdmIndents.forEach(b=>rows.push([b.month+"-01","Mid Day Meals",b.indentNo,b.schoolName,b.totalCost]));
+  DB.serviceMatters.forEach(b=>rows.push([b.date,"Service",b.procNo||b.ref||"—",b.type+" — "+b.empName,""]));
+  DB.payBills.forEach(b=>rows.push([b.date,"Pay Bill",b.voucherNo,b.title,b.netTotal]));
+  DB.bills.forEach(b=>rows.push([b.date,"Bill",b.voucherNo,b.title,b.gross]));
+  rows.sort((a,b)=>String(b[0]).localeCompare(String(a[0])));
+  const tb = A.$("#recent tbody");
+  if(!rows.length){ tb.innerHTML = `<tr><td colspan="5" class="empty">No records yet. Open a work section to begin.</td></tr>`; }
+  else tb.innerHTML = rows.slice(0,12).map(r=>
+    `<tr><td>${A.fmtDate(r[0])}</td><td>${r[1]}</td><td>${A.esc(r[2])}</td><td>${A.esc(r[3])}</td><td class="num">${r[4]!==""?A.money(r[4]):"—"}</td></tr>`).join("");
+
+  /* ---- pending ---- */
+  const pend = [];
+  const mp = DB.medicalBills.filter(b=>b.status==="Draft"||b.status==="Submitted");
+  if(mp.length) pend.push(`${mp.length} medical claim(s) awaiting sanction`);
+  const sm = DB.serviceMatters.filter(b=>b.status&&b.status!=="Closed"&&b.status!=="Sanctioned");
+  if(sm.length) pend.push(`${sm.length} service matter(s) in progress`);
+  const nb = DB.bills.filter(b=>b.status==="Prepared");
+  if(nb.length) pend.push(`${nb.length} bill(s) prepared, not yet passed`);
+  const mi = DB.mdmIndents.filter(b=>!b.ucFiled);
+  if(mi.length) pend.push(`${mi.length} MDM indent(s) without utilisation certificate`);
+  pend.push("Verify DA % and PT slabs in Settings before running pay bills");
+  A.$("#pending").innerHTML = pend.map(p=>`<li>${p}</li>`).join("");
+})();
+</script>
+</body>
+</html>

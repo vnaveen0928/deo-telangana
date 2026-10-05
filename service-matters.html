@@ -1,0 +1,384 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Service Matters &middot; DEO Telangana Office Suite</title>
+<link rel="stylesheet" href="assets/styles.css">
+<link rel="stylesheet" href="assets/print.css">
+</head>
+<body>
+<div class="wrap">
+  <div class="page-title"><h2>Service Matters &mdash; Teachers &amp; Staff</h2></div>
+  <div class="crumbs">Increments, Automatic Advancement, promotions, transfers, leave, pay fixation, surrender leave, pension / retirement and disciplinary matters. Each matter generates an office <b>Note</b> and <b>Proceedings</b>.</div>
+
+  <div class="tabs">
+    <button data-v="list" class="active">Matters register</button>
+    <button data-v="new">New matter</button>
+  </div>
+
+  <section id="v-list">
+    <div class="pill-filter">
+      <input id="q" placeholder="Search employee / proceedings no." style="max-width:300px">
+      <select id="fType" style="max-width:220px"><option value="">All types</option></select>
+      <select id="fStatus" style="max-width:170px">
+        <option value="">All status</option><option>Note prepared</option><option>Submitted</option>
+        <option>Sanctioned</option><option>Returned</option><option>Closed</option>
+      </select>
+      <span style="flex:1"></span>
+      <button class="btn secondary small" id="btnCsv">Export CSV</button>
+    </div>
+    <div class="table-scroll">
+      <table class="data" id="tbl"><thead><tr>
+        <th>Proc. No.</th><th>Date</th><th>Type</th><th>Employee</th><th>Effect</th><th>Status</th><th></th>
+      </tr></thead><tbody></tbody></table>
+    </div>
+  </section>
+
+  <section id="v-new" style="display:none">
+    <div class="card">
+      <form id="frm">
+        <input type="hidden" name="id">
+        <div class="form-row three">
+          <div><label>Type of matter</label><select name="type" id="type" required></select></div>
+          <div><label>Employee</label><select name="empId" id="empId" required></select></div>
+          <div><label>Date of order</label><input type="date" name="date" required></div>
+        </div>
+        <div class="form-row three">
+          <div><label id="lFrom">From (existing)</label><input name="fromValue" placeholder="e.g. 55410"></div>
+          <div><label id="lTo">To (revised / sanctioned)</label><input name="toValue" placeholder="e.g. 57100"></div>
+          <div><label id="lEff">Effective / w.e.f.</label><input type="date" name="effDate"></div>
+        </div>
+        <div class="form-row three">
+          <div><label id="lP1">Period / spell</label><input name="period" placeholder="for leave: from &hellip; to &hellip; (n days)"></div>
+          <div><label id="lP2">Nature / kind</label><input name="kind" placeholder="EL / HPL / Commuted / Maternity / AAS-II &hellip;"></div>
+          <div><label>Place / Unit (for transfer)</label><input name="place"></div>
+        </div>
+        <div class="form-row">
+          <div><label>References cited (G.O.s / rules / representation) — one per line</label>
+            <textarea name="refs"></textarea></div>
+          <div><label>Order text (auto-drafted — edit as required)</label>
+            <textarea name="orderText" style="min-height:150px"></textarea></div>
+        </div>
+        <div class="form-row three">
+          <div><label>Dealing Assistant</label><input name="da" value="Superintendent (Estt.)"></div>
+          <div><label>Checked by</label><input name="checker" value="Administrative Officer"></div>
+          <div><label>Sanctioning authority</label><input name="authority" value="District Educational Officer"></div>
+        </div>
+        <div class="form-row one">
+          <div><label>Assistant's note (admissibility / rule position)</label><textarea name="note"></textarea></div>
+        </div>
+        <div class="btn-row">
+          <button class="btn" type="submit">Save matter</button>
+          <button class="btn ghost" type="button" id="btnCancel">Cancel</button>
+          <button class="btn secondary" type="button" id="btnRedraft">Re-draft order &amp; note from template</button>
+        </div>
+      </form>
+    </div>
+  </section>
+
+  <section id="v-rec" style="display:none">
+    <button class="btn ghost small no-print" id="backBtn">&larr; Back</button>
+    <div class="tabs" style="margin-top:12px">
+      <button data-r="det" class="active">Details</button>
+      <button data-r="note">Note</button>
+      <button data-r="proc">Proceedings</button>
+    </div>
+    <div id="r-det" class="tab-panel active"></div>
+    <div id="r-note" class="tab-panel">
+      <div class="doc-toolbar no-print">
+        <select id="stSel" style="max-width:180px">
+          <option>Note prepared</option><option>Submitted</option><option>Sanctioned</option><option>Returned</option><option>Closed</option>
+        </select>
+        <button class="btn secondary small" id="btnPrintNote">Print / PDF</button>
+      </div>
+      <div class="doc" id="noteDoc"></div>
+    </div>
+    <div id="r-proc" class="tab-panel">
+      <div class="doc-toolbar no-print"><button class="btn secondary small" id="btnPrintProc">Print / PDF</button></div>
+      <div class="doc" id="procDoc"></div>
+    </div>
+  </section>
+</div>
+
+<script src="assets/app.js"></script>
+<script>
+(function(){
+  const A=window.App, DB=window.App.DB, M=DB.meta;
+  A.chrome("service-matters.html");
+
+  const TYPES=[
+    "Annual Grade Increment","Automatic Advancement Scheme (AAS)","Promotion",
+    "Transfer & Posting","Leave — sanction","Pay Fixation","Surrender / Encashment of Earned Leave",
+    "Pension / Retirement on Superannuation","Charge Memo / Disciplinary","Increment withheld / released","Other"
+  ];
+  A.$("#type").innerHTML=TYPES.map(t=>`<option>${t}</option>`).join("");
+  A.$("#fType").insertAdjacentHTML("beforeend",TYPES.map(t=>`<option>${t}</option>`).join(""));
+  A.$("#empId").innerHTML=DB.employees.map(e=>`<option value="${e.id}">${A.esc(e.empNo)} — ${A.esc(e.name)}, ${A.esc(e.designation)}, ${A.esc(e.school)}</option>`).join("");
+
+  const views={list:A.$("#v-list"),new:A.$("#v-new"),rec:A.$("#v-rec")};
+  function show(v){for(const k in views)views[k].style.display=k===v?"":"none";}
+  function syncTop(i){A.$$(".tabs button[data-v]").forEach((x,j)=>x.classList.toggle("active",j===i));}
+  A.$$(".tabs button[data-v]").forEach(b=>b.onclick=()=>{
+    syncTop(b.dataset.v==="new"?1:0);
+    if(b.dataset.v==="new"){resetForm();}
+    if(b.dataset.v==="list"){render();}
+    show(b.dataset.v);
+  });
+
+  const frm=A.$("#frm");
+  const L={from:A.$("#lFrom"),to:A.$("#lTo"),eff:A.$("#lEff"),p1:A.$("#lP1"),p2:A.$("#lP2")};
+
+  function labelsFor(t){
+    const map={
+      "Annual Grade Increment":["Present basic pay","Basic pay after increment","Date of increment","(not used)","(not used)"],
+      "Automatic Advancement Scheme (AAS)":["Present scale / basic","Sanctioned scale / basic","Date of AAS benefit","Completed service","AAS spell (I/II/III/IV)"],
+      "Promotion":["Present post","Post promoted to","Date of promotion","Panel year / seniority","Mode (regular/temp)"],
+      "Transfer & Posting":["Present station","Posted to station","Date to be relieved","Order / counselling ref.","Vacancy (clear/leave)"],
+      "Leave — sanction":["Leave at credit before","Leave at credit after","Date of commencement","Spell (from — to, days)","Kind of leave"],
+      "Pay Fixation":["Pre-revised basic","Revised basic","Date of fixation","Option date","Rule / method"],
+      "Surrender / Encashment of Earned Leave":["EL at credit","EL surrendered (days)","Date of surrender","Block period","Pay + DA for the days"],
+      "Pension / Retirement on Superannuation":["Date of birth","Date of retirement (A/N)","Qualifying service","Last pay drawn","Class of pension"],
+      "Charge Memo / Disciplinary":["Rule invoked","Proposed action","Date of memo","Time for reply","Articles of charge (count)"],
+      "Increment withheld / released":["Increment date","No. of increments","Effect (with/without cumulative)","Reference of penalty order","(not used)"],
+      "Other":["From","To","Effective date","Particulars","Kind"]
+    };
+    return map[t]||map["Other"];
+  }
+  function applyLabels(){
+    const [a,b,c,d,e]=labelsFor(A.$("#type").value);
+    L.from.textContent=a;L.to.textContent=b;L.eff.textContent=c;L.p1.textContent=d;L.p2.textContent=e;
+  }
+  A.$("#type").addEventListener("change",()=>{orderDirty=noteDirty=refsDirty=false;applyLabels();draftFromTemplate(true);});
+
+  function empSel(){return DB.employees.find(x=>x.id===frm.elements.empId.value);}
+
+  function draftFromTemplate(force){
+    const t=frm.elements.type.value, e=empSel();
+    if(!e) return;
+    const who=`Sri/Smt. ${e.name}, ${e.designation}, ${e.school}`;
+    const F=frm.elements;
+    let refs="", order="", note="";
+    switch(t){
+      case "Annual Grade Increment":
+        refs=`1. A.P. Revised Scales of Pay Rules, 2020.\n2. Fundamental Rule 24 & 26.\n3. Increment Certificate of the Head of Office.`;
+        order=`Sanction is accorded to the Annual Grade Increment of ${who} raising the basic pay from ₹ ${F.fromValue.value||"____"} to ₹ ${F.toValue.value||"____"} in the time scale ${e.scale||"____"} with effect from ${A.fmtDate(F.effDate.value)||"____"}.\n\nThe increment is drawn subject to the Increment Certificate and to F.R. 24. The Drawing Officer shall note the next date of increment accordingly.`;
+        note=`The individual completed one year of satisfactory service on the incremental date. There is no punishment order withholding the increment. The increment from ₹ ${F.fromValue.value||"____"} to ₹ ${F.toValue.value||"____"} is admissible under F.R. 26 and may be sanctioned.`;
+        break;
+      case "Automatic Advancement Scheme (AAS)":
+        refs=`1. G.O.(P) No. 25, Fin (PC-I) Dept., dt. 30-04-2021 — Automatic Advancement Scheme under RPS-2020.\n2. Service Register of the individual.\n3. Representation of the individual.`;
+        order=`${who} having completed ${F.period.value||"____"} of service in the same post and there being no adverse remarks or pending disciplinary / criminal proceedings, the benefit of the Automatic Advancement Scheme (${F.kind.value||"Spell"}) is sanctioned by fixing the pay from ₹ ${F.fromValue.value||"____"} to ₹ ${F.toValue.value||"____"} with effect from ${A.fmtDate(F.effDate.value)||"____"}.\n\nPay fixation statement duly checked is enclosed. The arrears, if any, shall be drawn in a separate bill.`;
+        note=`The individual completed the prescribed service for the AAS spell noted. SR entries verified; no punishment / pending PR case. The scheme benefit and consequential pay fixation are admissible and may be sanctioned.`;
+        break;
+      case "Promotion":
+        refs=`1. A.P. State &amp; Subordinate Service Rules, 1996.\n2. Panel of the year approved in this office proceedings.\n3. Rule 33/34 of A.P. Education Subordinate Service Rules.`;
+        order=`${who} is promoted as ${F.toValue.value||"____"} in the scale of pay ${e.scale||"____"} and posted to the vacancy noted, with effect from the date of taking charge, on regular basis in the existing / anticipated vacancy.\n\nThe promotion is subject to the outcome of pending litigation, if any, and to the seniority finally settled. The individual shall be relieved from the present post of ${F.fromValue.value||"____"} to join the promoted post.`;
+        note=`The individual is next in the approved panel for the year ${F.period.value||"____"}, possesses the prescribed qualification and probation is declared. No disciplinary case is pending. Promotion may be ordered.`;
+        break;
+      case "Transfer & Posting":
+        refs=`1. Telangana teachers Transfer guidelines / G.O. issued for the year.\n2. Web counselling proceedings / request of the individual.\n3. Vacancy position of the district.`;
+        order=`In the interest of public service, ${who}, working at ${F.fromValue.value||"____"}, is transferred and posted to <b>${F.place.value||F.toValue.value||"____"}</b> against a ${F.kind.value||"clear"} vacancy.\n\nThe individual shall be relieved on ${A.fmtDate(F.effDate.value)||"the afternoon of ____"} with directions to join the new station immediately. Relief and joining reports shall be sent to this office. T.T.A., if admissible, shall be claimed separately.`;
+        note=`The transfer is as per the counselling / request and the guidelines in force. The post at the receiving school is vacant. Relieving will not dislocate instruction as alternate arrangements exist. Orders may be issued.`;
+        break;
+      case "Leave — sanction":
+        refs=`1. A.P. Leave Rules, 1933.\n2. Leave application of the individual and Medical Certificate (where applicable).\n3. Leave account maintained in the Service Register.`;
+        order=`${F.kind.value||"Earned Leave"} for the spell <b>${F.period.value||"____"}</b> is sanctioned to ${who} with effect from ${A.fmtDate(F.effDate.value)||"____"}.\n\nLeave at credit before the spell: ${F.fromValue.value||"____"}; balance after the spell: ${F.toValue.value||"____"}. The individual shall hand over charge before proceeding on leave and report on expiry. Leave salary shall be regulated under the Leave Rules.`;
+        note=`Leave applied for is due and admissible as per the leave account. Charge arrangements are in place. The leave (${F.kind.value||"____"}) for ${F.period.value||"____"} may be sanctioned.`;
+        break;
+      case "Pay Fixation":
+        refs=`1. A.P. Revised Scales of Pay Rules, 2020 and Ready Reckoner.\n2. Option exercised by the individual dated ${A.fmtDate(F.toValue.value)|| "____"}.\n3. G.O.Ms.No. 6, Fin (HRM.iv) Dept. (fixation of pay on promotion), F.R. 22-B.`;
+        order=`The pay of ${who} is refixed from ₹ ${F.fromValue.value||"____"} (pre-revised / pre-promotion) to ₹ ${F.toValue.value||"____"} with effect from ${A.fmtDate(F.effDate.value)||"____"} under ${F.kind.value||"the relevant rule"}.\n\nThe pay fixation statement checked by the Superintendent is enclosed and forms part of this order. Over-drawal, if any, shall be recovered; arrears shall be drawn in a separate bill after pre-audit.`;
+        note=`Pay fixation worked out with reference to the option and the Ready Reckoner. The method adopted (${F.kind.value||"____"}) is correct. The refixation to ₹ ${F.toValue.value||"____"} w.e.f. ${A.fmtDate(F.effDate.value)||"____"} is in order and may be approved.`;
+        break;
+      case "Surrender / Encashment of Earned Leave":
+        refs=`1. G.O.Ms.No. 213, Fin & Plg. Dept., dt. 20-05-1988 and amendments — Surrender of Earned Leave.\n2. Leave account of the individual.\n3. Application of the individual.`;
+        order=`Permission is accorded to ${who} to surrender ${F.toValue.value||"____"} days of Earned Leave for the block period ${F.period.value||"____"}. The cash equivalent of ${F.kind.value||"pay + D.A."} for the surrendered days shall be drawn and paid.\n\nEarned Leave at credit: ${F.fromValue.value||"____"} days. The surrender shall be entered in the Service Register and the leave account debited accordingly.`;
+        note=`The individual is eligible to surrender EL for the block period. EL at credit is sufficient after keeping the prescribed minimum. The surrender of ${F.toValue.value||"____"} days may be permitted and the amount drawn.`;
+        break;
+      case "Pension / Retirement on Superannuation":
+        refs=`1. A.P. Revised Pension Rules, 1980 / T.S. Pension Rules.\n2. G.O.Ms.No. 235, Fin (Pen-I) Dept. — retirement on superannuation.\n3. Service Register and pension papers of the individual.`;
+        order=`${who} (Date of birth ${A.fmtDate(F.fromValue.value)||"____"}) shall retire from service on the <b>afternoon of ${A.fmtDate(F.toValue.value)||"____"}</b> on attaining the age of superannuation.\n\nThe Head of Office is directed to (i) release the individual on the said date, (ii) forward the pension papers with S.R. duly completed to the Accountant-General / D.T.O., (iii) sanction provisional pension and gratuity if authorisation is delayed, and (iv) issue the Last Pay Certificate and No-Due Certificate. Qualifying service: ${F.period.value||"____"}; last pay drawn ₹ ${e.basic||"____"}; class of pension: ${F.kind.value||"Superannuation"}.`;
+        note=`The individual attains superannuation on the date noted. Pension papers are being processed; there is no pending disciplinary or audit objection affecting pension. Retirement proceedings may be issued and papers forwarded.`;
+        break;
+      case "Charge Memo / Disciplinary":
+        refs=`1. A.P. Civil Services (Classification, Control &amp; Appeal) Rules, 1991 — Rule ${F.fromValue.value||"20"}.\n2. Report / preliminary enquiry in the matter.\n3. (Confidential file)`;
+        order=`A memorandum of charges is issued to ${who} under Rule ${F.fromValue.value||"20"} of the A.P.C.S. (CCA) Rules, 1991, proposing ${F.toValue.value||"a minor / major penalty"}.\n\nThe individual is directed to submit a written statement of defence within <b>${F.period.value||"____"}</b> from the date of receipt of this memo, stating whether an oral enquiry is desired. If no reply is received within the time allowed, it will be presumed that there is nothing to state and the matter will be decided on merits. Articles of charge, statement of imputations and list of documents / witnesses are enclosed.`;
+        note=`Prima facie material exists as per the report. The delinquency attracts Rule ${F.fromValue.value||"20"}. A charge memo proposing ${F.toValue.value||"action"} may be approved for issue.`;
+        break;
+      case "Increment withheld / released":
+        refs=`1. A.P.C.S. (CCA) Rules, 1991.\n2. Penalty order in this office Proceedings.\n3. F.R. 24.`;
+        order=`In modification / implementation of the penalty order cited, the increment(s) of ${who} falling due on ${A.fmtDate(F.fromValue.value)||"____"} — ${F.toValue.value||"1"} increment(s) — ${F.effDate?("shall be released with effect from "+A.fmtDate(F.effDate.value)) : "stand withheld"} ${F.kind.value||"without cumulative effect"}.\n\nThe Drawing Officer shall regulate the pay accordingly and note the revised date of increment.`;
+        note=`The increment position is verified with the penalty order. The action proposed (withhold / release) is consistent with that order and F.R. 24 and may be ordered.`;
+        break;
+      default:
+        refs=`1. \n2. `;
+        order=`Orders are issued in the matter of ${who} as follows:\n\n____________________________________________`;
+        note=`The matter has been examined. ____________________________________________`;
+    }
+    if(force||!refsDirty)  F.refs.value=refs;
+    if(force||!orderDirty) F.orderText.value=order.replace(/<\/?b>/g,"");
+    if(force||!noteDirty)  F.note.value=note;
+  }
+  /* track manual edits so structured-field changes don't clobber user text */
+  let orderDirty=false, noteDirty=false, refsDirty=false;
+  frm.elements.orderText.addEventListener("input",()=>orderDirty=true);
+  frm.elements.note.addEventListener("input",()=>noteDirty=true);
+  frm.elements.refs.addEventListener("input",()=>refsDirty=true);
+  A.$("#btnRedraft").onclick=()=>{orderDirty=noteDirty=refsDirty=false;draftFromTemplate(true);};
+  ["empId","fromValue","toValue","effDate","period","kind","place"].forEach(k=>{
+    if(frm.elements[k]) frm.elements[k].addEventListener("change",()=>draftFromTemplate(false));
+  });
+
+  function resetForm(){frm.reset();frm.elements.date.value=A.today();orderDirty=noteDirty=refsDirty=false;applyLabels();draftFromTemplate(true);}
+  A.$("#btnCancel").onclick=()=>{render();show("list");syncTop(0);};
+
+  frm.addEventListener("submit",e=>{
+    e.preventDefault();
+    const o=A.formData(frm), emp=DB.employees.find(x=>x.id===o.empId);
+    o.empName=emp?emp.name:""; o.empDesig=emp?emp.designation:""; o.empSchool=emp?emp.school:"";
+    A.commit(db=>{
+      if(o.id){const i=db.serviceMatters.findIndex(x=>x.id===o.id);o.procNo=db.serviceMatters[i].procNo;o.status=db.serviceMatters[i].status;db.serviceMatters[i]=Object.assign(db.serviceMatters[i],o);}
+      else{
+        const n=A.nextCounter("proceedings");
+        o.id=A.uid("SM"); o.status="Note prepared";
+        o.procNo=`Proc. Rc.No. ${n}/${new Date(o.date).getFullYear()}/${abbr(o.type)}/DEO`;
+        db.serviceMatters.push(o);
+      }
+    });
+    A.toast("Saved","ok");
+    openRec(o.id||DB.serviceMatters[DB.serviceMatters.length-1].id);
+  });
+  function abbr(t){return ({"Annual Grade Increment":"AGI","Automatic Advancement Scheme (AAS)":"AAS","Promotion":"PROM","Transfer & Posting":"TRF","Leave — sanction":"LVE","Pay Fixation":"PF","Surrender / Encashment of Earned Leave":"SEL","Pension / Retirement on Superannuation":"PEN","Charge Memo / Disciplinary":"DISC","Increment withheld / released":"INC","Other":"GEN"})[t]||"GEN";}
+
+  /* ---- list ---- */
+  function render(){
+    const q=A.$("#q").value.toLowerCase(),ft=A.$("#fType").value,fs=A.$("#fStatus").value;
+    let rows=DB.serviceMatters.slice().sort((a,b)=>String(b.date).localeCompare(a.date));
+    rows=rows.filter(x=>{
+      if(ft&&x.type!==ft)return false;
+      if(fs&&x.status!==fs)return false;
+      if(q&&!((x.empName+" "+x.procNo+" "+x.type).toLowerCase().includes(q)))return false;
+      return true;
+    });
+    const tb=A.$("#tbl tbody");
+    if(!rows.length){tb.innerHTML=`<tr><td colspan="7" class="empty">No matters. Use “New matter”.</td></tr>`;return;}
+    tb.innerHTML=rows.map(x=>`<tr>
+      <td>${A.esc(x.procNo)}</td><td>${A.fmtDate(x.date)}</td><td>${A.esc(x.type)}</td>
+      <td>${A.esc(x.empName)}<div class="small muted">${A.esc(x.empDesig)}</div></td>
+      <td>${A.esc([x.fromValue,x.toValue].filter(Boolean).join(" → ")||x.period||"—")}</td>
+      <td><span class="badge ${x.status==="Sanctioned"?"green":x.status==="Returned"?"red":x.status==="Closed"?"grey":"amber"}">${x.status}</span></td>
+      <td><button class="btn ghost small" data-open="${x.id}">Open</button></td></tr>`).join("");
+    tb.querySelectorAll("[data-open]").forEach(b=>b.onclick=()=>openRec(b.dataset.open));
+  }
+  ["q","fType","fStatus"].forEach(id=>A.$("#"+id).addEventListener("input",render));
+
+  /* ---- record ---- */
+  let cur=null;
+  A.$("#backBtn").onclick=()=>{render();show("list");syncTop(0);};
+  A.$$(".tabs button[data-r]").forEach(b=>b.onclick=()=>{
+    A.$$(".tabs button[data-r]").forEach(x=>x.classList.toggle("active",x===b));
+    A.$$("#v-rec .tab-panel").forEach(p=>p.classList.remove("active"));
+    A.$("#r-"+b.dataset.r).classList.add("active");
+  });
+  function openRec(id){
+    cur=DB.serviceMatters.find(x=>x.id===id);if(!cur)return;
+    show("rec");
+    A.$$(".tabs button[data-v]").forEach(x=>x.classList.remove("active"));
+    A.$$(".tabs button[data-r]").forEach((x,i)=>x.classList.toggle("active",i===0));
+    A.$$("#v-rec .tab-panel").forEach((p,i)=>p.classList.toggle("active",i===0));
+    A.$("#stSel").value=cur.status;
+    detail();noteDoc();procDoc();
+  }
+  A.$("#stSel").addEventListener("change",e=>{
+    A.commit(db=>{db.serviceMatters.find(x=>x.id===cur.id).status=e.target.value;});
+    cur.status=e.target.value;render();A.toast("Status updated");
+  });
+
+  function detail(){
+    const x=cur;
+    A.$("#r-det").innerHTML=`<div class="card">
+      <div class="inline" style="justify-content:space-between"><h3 style="margin:0">${A.esc(x.procNo)}</h3>
+      <span class="badge ${x.status==="Sanctioned"?"green":x.status==="Closed"?"grey":"amber"}">${x.status}</span></div>
+      <div class="divider"></div>
+      <div class="grid cols-3">
+        ${kv("Type",x.type)}${kv("Employee",x.empName+", "+x.empDesig)}${kv("Unit",x.empSchool)}
+        ${kv("From",x.fromValue||"—")}${kv("To",x.toValue||"—")}${kv("Effective",A.fmtDate(x.effDate)||"—")}
+        ${kv("Period / spell",x.period||"—")}${kv("Kind",x.kind||"—")}${kv("Place",x.place||"—")}
+      </div>
+      <div class="btn-row">
+        <button class="btn secondary small" id="edit">Edit</button>
+        <button class="btn danger small" id="del">Delete</button>
+      </div></div>`;
+    A.$("#edit").onclick=()=>{
+      resetForm();
+      for(const k in x){const f=frm.elements[k];if(f)f.value=x[k]!=null?x[k]:"";}
+      orderDirty=noteDirty=refsDirty=true; /* keep the saved wording on edit */
+      applyLabels();show("new");syncTop(1);
+    };
+    A.$("#del").onclick=()=>{
+      if(!A.confirmBox("Delete this matter?"))return;
+      A.commit(db=>{db.serviceMatters=db.serviceMatters.filter(y=>y.id!==x.id);});
+      render();show("list");syncTop(0);
+    };
+  }
+  function kv(k,v){return `<div><label>${k}</label><div>${A.esc(v)}</div></div>`;}
+
+  function refsHtml(s){return A.esc(s||"").split("\n").filter(Boolean).map((l,i)=>/^\d/.test(l.trim())?l:(i+1)+". "+l).join("<br>");}
+
+  function noteDoc(){
+    const x=cur;
+    A.$("#noteDoc").innerHTML=`
+      <div class="doc-head"><h3>${A.esc(M.office).toUpperCase()}, ${A.esc(M.district).toUpperCase()}</h3><p>OFFICE NOTE</p></div>
+      <hr>
+      <div class="ref-line"><span><b>File No.:</b> ${A.esc(x.procNo)}</span><span><b>Date:</b> ${A.fmtDate(x.date)}</span></div>
+      <div class="ref-line"><span><b>Section:</b> Establishment</span><span><b>Status:</b> ${x.status}</span></div>
+      <div class="subject"><b>Sub:</b> Estt. &mdash; ${A.esc(x.type)} &mdash; ${A.esc(x.empName)}, ${A.esc(x.empDesig)}, ${A.esc(x.empSchool)} &mdash; Reg.</div>
+      <div class="subject"><b>Ref:</b><br>${refsHtml(x.refs)}</div>
+      <hr>
+      <div class="noting">
+        <div class="para">${A.esc(x.note||"").replace(/\n/g,"<br>")}</div>
+        <div class="para">A draft proceedings is put up for approval. If approved it may be issued and communicated to all concerned and the Service Register / pay records updated.</div>
+        <div class="para"><b>Submitted.</b></div>
+      </div>
+      <div class="sign-block"><div>${A.esc(x.da||"Superintendent")}</div></div>
+      <div class="noting" style="margin-top:22px">
+        <div class="para"><b>Checked:</b> ${A.esc(x.checker||"Administrative Officer")}</div>
+        <div class="para"><b>Orders of the ${A.esc(x.authority||"District Educational Officer")}:</b> Approved. Issue proceedings.</div>
+      </div>
+      <div class="sign-block"><div class="desig">${A.esc(x.authority||"District Educational Officer")}</div><div>${A.esc(M.district)}</div></div>`;
+  }
+
+  function procDoc(){
+    const x=cur;
+    A.$("#procDoc").innerHTML=`
+      <div class="doc-head">
+        <p>PROCEEDINGS OF THE ${A.esc(M.officer).toUpperCase()}, ${A.esc(M.district).toUpperCase()}</p>
+        <p><b>Present:</b> Sri/Smt. ____________________</p>
+      </div><hr>
+      <div class="ref-line"><span><b>Proc. Rc. No.:</b> ${A.esc(x.procNo)}</span><span><b>Dated:</b> ${A.fmtDate(x.date)}</span></div>
+      <div class="subject"><b>Sub:</b> Establishment &mdash; ${A.esc(x.type)} &mdash; ${A.esc(x.empName)}, ${A.esc(x.empDesig)}, ${A.esc(x.empSchool)} &mdash; Orders &mdash; Issued.</div>
+      <div class="subject"><b>Ref:</b><br>${refsHtml(x.refs)}</div>
+      <hr>
+      <div class="body"><p><b>ORDER:</b></p><p>${A.esc(x.orderText||"").replace(/\n\n/g,"</p><p>").replace(/\n/g,"<br>")}</p></div>
+      <div class="sign-block"><div class="desig">${A.esc(M.officer)}</div><div>${A.esc(M.district)}</div></div>
+      <div class="tolist"><b>To</b><br>
+        The individual through the Headmaster / Institution concerned.<br>
+        The Head of Office for noting in the Service Register and pay records.<br>
+        The Drawing &amp; Disbursing Officer / ${A.esc(M.treasury)}.<br>
+        Stock file / Spare.</div>`;
+  }
+
+  A.$("#btnPrintNote").onclick=()=>window.print();
+  A.$("#btnPrintProc").onclick=()=>window.print();
+
+  A.$("#btnCsv").onclick=()=>{
+    const head=["ProcNo","Date","Type","Employee","Designation","School","From","To","Effective","Period","Kind","Place","Status"];
+    const rows=DB.serviceMatters.map(x=>[x.procNo,x.date,x.type,x.empName,x.empDesig,x.empSchool,x.fromValue,x.toValue,x.effDate,x.period,x.kind,x.place,x.status]);
+    A.downloadFile("service-matters-"+A.today()+".csv",A.toCSV([head,...rows]),"text/csv");
+  };
+
+  resetForm();render();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,411 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mid Day Meals &middot; DEO Telangana Office Suite</title>
+<link rel="stylesheet" href="assets/styles.css">
+<link rel="stylesheet" href="assets/print.css">
+</head>
+<body>
+<div class="wrap">
+  <div class="page-title"><h2>Mid Day Meals (PM POSHAN)</h2></div>
+  <div class="crumbs">School-wise monthly indent of cooking cost, cook-cum-helper honorarium and rice drawal; cooking-cost bill and Utilisation Certificate for release to schools / agencies.</div>
+
+  <div class="tabs">
+    <button data-v="list" class="active">Monthly indents</button>
+    <button data-v="new">New indent</button>
+    <button data-v="schools">Schools</button>
+  </div>
+
+  <!-- ============ LIST ============ -->
+  <section id="v-list">
+    <div class="pill-filter">
+      <select id="fMonth" style="max-width:170px"><option value="">All months</option></select>
+      <input id="q" placeholder="Search school / indent no." style="max-width:300px">
+      <span style="flex:1"></span>
+      <button class="btn secondary small" id="btnCsv">Export CSV</button>
+    </div>
+    <div class="table-scroll">
+      <table class="data" id="tbl"><thead><tr>
+        <th>Indent No.</th><th>Month</th><th>School</th><th class="num">MDM days</th>
+        <th class="num">Avg. meals</th><th class="num">Rice (kg)</th><th class="num">Cooking cost</th>
+        <th class="num">Honorarium</th><th class="num">Total</th><th>UC</th><th></th>
+      </tr></thead><tbody></tbody></table>
+    </div>
+    <div class="card" id="totals" style="margin-top:16px"></div>
+  </section>
+
+  <!-- ============ NEW ============ -->
+  <section id="v-new" style="display:none">
+    <div class="card">
+      <form id="frm">
+        <input type="hidden" name="id">
+        <div class="form-row three">
+          <div><label>School</label><select name="schoolId" id="schoolId" required></select></div>
+          <div><label>Month</label><input type="month" name="month" required></div>
+          <div><label>No. of MDM serving days</label><input type="number" name="days" min="0" max="31" value="24" required></div>
+        </div>
+        <div class="form-row three">
+          <div><label>Primary (I-V) — avg. children availed / day</label><input type="number" name="pAvg" min="0" value="0"></div>
+          <div><label>Upper Primary (VI-VIII) — avg. children availed / day</label><input type="number" name="uAvg" min="0" value="0"></div>
+          <div><label>No. of Cook-cum-Helpers</label><input type="number" name="cch" min="0" value="1"></div>
+        </div>
+        <div class="form-row three">
+          <div><label>Opening rice balance (kg)</label><input type="number" name="riceOpen" min="0" step="0.001" value="0"></div>
+          <div><label>Rice received from MLS point (kg)</label><input type="number" name="riceRecd" min="0" step="0.001" value="0"></div>
+          <div><label>Cooking-cost opening balance (₹)</label><input type="number" name="costOpen" min="0" step="0.01" value="0"></div>
+        </div>
+        <div class="divider"></div>
+        <div class="small muted">Rates in force (edit in <a href="settings.html">Settings</a>): Primary cooking cost <b id="rP"></b>/child/day, Upper Primary <b id="rU"></b>/child/day, rice <b id="rRP"></b> g (P) &amp; <b id="rRU"></b> g (UP) per child per day, CCH honorarium <b id="rH"></b>/month.</div>
+        <div class="btn-row">
+          <button class="btn" type="submit">Compute &amp; save indent</button>
+          <button class="btn ghost" type="button" id="btnCancel">Cancel</button>
+        </div>
+      </form>
+    </div>
+    <div class="card" id="preview" style="margin-top:14px;display:none"></div>
+  </section>
+
+  <!-- ============ SCHOOLS ============ -->
+  <section id="v-schools" style="display:none">
+    <div class="pill-filter"><span style="flex:1"></span><button class="btn small" id="btnNewSchool">+ Add school</button></div>
+    <div class="table-scroll">
+      <table class="data" id="stbl"><thead><tr>
+        <th>UDISE</th><th>School</th><th>Mandal</th><th>Category</th><th class="num">Enrolment</th><th>Cooking agency / SHG</th><th></th>
+      </tr></thead><tbody></tbody></table>
+    </div>
+    <dialog id="sdlg"><form method="dialog" id="sfrm">
+      <h3 style="margin:0 0 12px;color:var(--gov-green-dark)">School</h3>
+      <input type="hidden" name="id">
+      <div class="form-row"><div><label>UDISE code</label><input name="udise" required></div><div><label>School name</label><input name="name" required></div></div>
+      <div class="form-row three">
+        <div><label>Mandal</label><input name="mandal"></div>
+        <div><label>Category</label><select name="category"><option>Primary</option><option>Upper Primary</option><option>Primary + Upper Primary</option><option>High (VI-VIII MDM)</option></select></div>
+        <div><label>Enrolment</label><input type="number" name="enrol" min="0"></div>
+      </div>
+      <div class="form-row one"><div><label>Cooking agency / SHG / CCH group</label><input name="cook"></div></div>
+      <div class="btn-row">
+        <button class="btn" value="save">Save</button>
+        <button class="btn ghost" value="cancel" formnovalidate>Cancel</button>
+        <span style="flex:1"></span>
+        <button class="btn danger" type="button" id="sDel" formnovalidate>Delete</button>
+      </div>
+    </form></dialog>
+  </section>
+
+  <!-- ============ RECORD ============ -->
+  <section id="v-rec" style="display:none">
+    <button class="btn ghost small no-print" id="backBtn">&larr; Back</button>
+    <div class="tabs" style="margin-top:12px">
+      <button data-r="det" class="active">Details</button>
+      <button data-r="bill">Cooking-cost bill / Indent</button>
+      <button data-r="uc">Utilisation Certificate</button>
+    </div>
+    <div id="r-det" class="tab-panel active"></div>
+    <div id="r-bill" class="tab-panel">
+      <div class="doc-toolbar no-print"><button class="btn secondary small" id="btnPrintBill">Print / PDF</button></div>
+      <div class="doc" id="billDoc"></div>
+    </div>
+    <div id="r-uc" class="tab-panel">
+      <div class="doc-toolbar no-print">
+        <label class="no-print" style="display:flex;align-items:center;gap:6px;font-weight:600">
+          <input type="checkbox" id="ucFiled" style="width:auto"> UC filed
+        </label>
+        <button class="btn secondary small" id="btnPrintUc">Print / PDF</button>
+      </div>
+      <div class="doc" id="ucDoc"></div>
+    </div>
+  </section>
+</div>
+
+<script src="assets/app.js"></script>
+<script>
+(function(){
+  const A=window.App, DB=DB0(); function DB0(){return window.App.DB;}
+  A.chrome("mid-day-meals.html");
+  const M=DB.meta;
+
+  /* ---- rates ---- */
+  function mdmRates(){
+    return Object.assign({ pCost:5.45, uCost:8.17, pRice:100, uRice:150, cchHon:1000 }, (M.rates&&M.rates.mdm)||{});
+  }
+  const R=mdmRates();
+  A.$("#rP").textContent="₹"+R.pCost; A.$("#rU").textContent="₹"+R.uCost;
+  A.$("#rRP").textContent=R.pRice; A.$("#rRU").textContent=R.uRice; A.$("#rH").textContent="₹"+R.cchHon;
+
+  /* ---- views ---- */
+  const views={list:A.$("#v-list"),new:A.$("#v-new"),schools:A.$("#v-schools"),rec:A.$("#v-rec")};
+  function show(v){for(const k in views)views[k].style.display=k===v?"":"none";}
+  A.$$(".tabs button[data-v]").forEach(b=>b.onclick=()=>{
+    A.$$(".tabs button[data-v]").forEach(x=>x.classList.toggle("active",x===b));
+    const v=b.dataset.v;
+    if(v==="new"){frm.reset();frm.elements.month.value=new Date().toISOString().slice(0,7);A.$("#preview").style.display="none";}
+    if(v==="schools")schoolList();
+    if(v==="list")render();
+    show(v);
+  });
+
+  /* ---- school dropdown + list ---- */
+  function fillSchools(){
+    A.$("#schoolId").innerHTML=DB.schools.map(s=>`<option value="${s.id}">${A.esc(s.name)} (${A.esc(s.udise)}) — ${A.esc(s.mandal||"")}</option>`).join("");
+  }
+  fillSchools();
+
+  const sdlg=A.$("#sdlg"), sfrm=A.$("#sfrm");
+  function schoolList(){
+    const tb=A.$("#stbl tbody");
+    tb.innerHTML=DB.schools.map(s=>`<tr>
+      <td>${A.esc(s.udise)}</td><td>${A.esc(s.name)}</td><td>${A.esc(s.mandal||"")}</td>
+      <td>${A.esc(s.category)}</td><td class="num">${A.num(s.enrol)}</td><td>${A.esc(s.cook||"")}</td>
+      <td><button class="btn ghost small" data-e="${s.id}">Edit</button></td></tr>`).join("")
+      || `<tr><td colspan="7" class="empty">No schools yet.</td></tr>`;
+    tb.querySelectorAll("[data-e]").forEach(x=>x.onclick=()=>openSchool(x.dataset.e));
+  }
+  function openSchool(id){
+    const s=id?DB.schools.find(x=>x.id===id):null;
+    sfrm.reset(); A.$("#sDel").style.display=s?"":"none";
+    if(s)for(const k in s){const f=sfrm.elements[k];if(f)f.value=s[k];}
+    sfrm.elements.id.value=s?s.id:""; sdlg.showModal();
+  }
+  A.$("#btnNewSchool").onclick=()=>openSchool(null);
+  A.$("#sDel").onclick=()=>{
+    const id=sfrm.elements.id.value; if(!id)return;
+    if(!A.confirmBox("Delete this school?"))return;
+    A.commit(db=>{db.schools=db.schools.filter(x=>x.id!==id);});
+    sdlg.close(); schoolList(); fillSchools();
+  };
+  sfrm.addEventListener("submit",e=>{
+    if(e.submitter&&e.submitter.value!=="save")return;
+    const o=A.formData(sfrm);
+    A.commit(db=>{
+      if(o.id){const i=db.schools.findIndex(x=>x.id===o.id);db.schools[i]=Object.assign(db.schools[i],o);}
+      else{o.id=A.uid("S");db.schools.push(o);}
+    });
+    schoolList(); fillSchools(); A.toast("Saved","ok");
+  });
+
+  /* ---- month filter ---- */
+  const months=[...new Set(DB.mdmIndents.map(i=>i.month))].sort().reverse();
+  A.$("#fMonth").insertAdjacentHTML("beforeend",months.map(m=>`<option>${m}</option>`).join(""));
+
+  /* ---- compute ---- */
+  function compute(o){
+    const days=Number(o.days)||0, pAvg=Number(o.pAvg)||0, uAvg=Number(o.uAvg)||0, cch=Number(o.cch)||0;
+    const pMeals=pAvg*days, uMeals=uAvg*days;
+    const pCost=+(pMeals*R.pCost).toFixed(2), uCost=+(uMeals*R.uCost).toFixed(2);
+    const cookingCost=+(pCost+uCost).toFixed(2);
+    const honorarium=+(cch*R.cchHon).toFixed(2);
+    const riceReqd=+(((pMeals*R.pRice)+(uMeals*R.uRice))/1000).toFixed(3);
+    const riceAvail=+((Number(o.riceOpen)||0)+(Number(o.riceRecd)||0)).toFixed(3);
+    const riceClose=+(riceAvail-riceReqd).toFixed(3);
+    const totalCost=+(cookingCost+honorarium).toFixed(2);
+    const costAvail=+((Number(o.costOpen)||0)+totalCost).toFixed(2);
+    return {days,pAvg,uAvg,cch,pMeals,uMeals,pCost,uCost,cookingCost,honorarium,
+      riceReqd,riceAvail,riceClose,totalCost,costOpen:Number(o.costOpen)||0,costAvail,
+      riceOpen:Number(o.riceOpen)||0,riceRecd:Number(o.riceRecd)||0};
+  }
+
+  const frm=A.$("#frm");
+  A.$("#btnCancel").onclick=()=>{render();show("list");syncTab(0);};
+  function syncTab(i){A.$$(".tabs button[data-v]").forEach((x,j)=>x.classList.toggle("active",j===i));}
+
+  frm.addEventListener("submit",e=>{
+    e.preventDefault();
+    const raw=A.formData(frm);
+    const s=DB.schools.find(x=>x.id===raw.schoolId);
+    const c=compute(raw);
+    const rec=Object.assign({},raw,c,{
+      schoolName:s?s.name:"", udise:s?s.udise:"", mandal:s?s.mandal:"", cookAgency:s?s.cook:"",
+    });
+    A.commit(db=>{
+      if(raw.id){const i=db.mdmIndents.findIndex(x=>x.id===raw.id);rec.indentNo=db.mdmIndents[i].indentNo;rec.ucFiled=db.mdmIndents[i].ucFiled;db.mdmIndents[i]=Object.assign(db.mdmIndents[i],rec);}
+      else{
+        const n=A.nextCounter("mdmIndent");
+        rec.id=A.uid("MDM"); rec.ucFiled=false;
+        rec.indentNo=`MDM/DEO/${raw.month.replace("-","/")}/${n}`;
+        db.mdmIndents.push(rec);
+      }
+    });
+    A.toast("Indent saved","ok");
+    openRec(raw.id||DB.mdmIndents[DB.mdmIndents.length-1].id);
+  });
+
+  /* ---- list ---- */
+  function render(){
+    const fm=A.$("#fMonth").value, q=A.$("#q").value.toLowerCase();
+    let rows=DB.mdmIndents.slice().sort((a,b)=>String(b.month).localeCompare(a.month));
+    rows=rows.filter(i=>{
+      if(fm&&i.month!==fm)return false;
+      if(q&&!((i.schoolName+" "+i.indentNo).toLowerCase().includes(q)))return false;
+      return true;
+    });
+    const tb=A.$("#tbl tbody");
+    if(!rows.length){tb.innerHTML=`<tr><td colspan="11" class="empty">No indents. Use “New indent”.</td></tr>`;A.$("#totals").innerHTML="";return;}
+    tb.innerHTML=rows.map(i=>`<tr>
+      <td>${A.esc(i.indentNo)}</td><td>${i.month}</td>
+      <td>${A.esc(i.schoolName)}<div class="small muted">${A.esc(i.udise)}</div></td>
+      <td class="num">${i.days}</td><td class="num">${A.num(i.pAvg+i.uAvg)}</td>
+      <td class="num">${i.riceReqd}</td><td class="num">${A.money(i.cookingCost)}</td>
+      <td class="num">${A.money(i.honorarium)}</td><td class="num">${A.money(i.totalCost)}</td>
+      <td>${i.ucFiled?'<span class="badge green">Filed</span>':'<span class="badge amber">Pending</span>'}</td>
+      <td><button class="btn ghost small" data-open="${i.id}">Open</button></td></tr>`).join("");
+    tb.querySelectorAll("[data-open]").forEach(x=>x.onclick=()=>openRec(x.dataset.open));
+    const sum=(k)=>rows.reduce((a,b)=>a+Number(b[k]||0),0);
+    A.$("#totals").innerHTML=`<h3>Consolidated for selection (${rows.length} school-month record(s))</h3>
+      <div class="grid cols-4">
+        ${tile("Rice required",sum("riceReqd").toFixed(3)+" kg")}
+        ${tile("Cooking cost",A.money(sum("cookingCost")))}
+        ${tile("CCH honorarium",A.money(sum("honorarium")))}
+        ${tile("Grand total",A.money(sum("totalCost")))}
+      </div>`;
+  }
+  function tile(l,n){return `<div class="card"><div class="kpi"><span class="n">${n}</span><span class="l">${l}</span></div></div>`;}
+  function badge(){}
+  ["fMonth","q"].forEach(id=>A.$("#"+id).addEventListener("input",render));
+
+  /* ---- record ---- */
+  let cur=null;
+  A.$("#backBtn").onclick=()=>{render();show("list");syncTab(0);};
+  A.$$(".tabs button[data-r]").forEach(b=>b.onclick=()=>{
+    A.$$(".tabs button[data-r]").forEach(x=>x.classList.toggle("active",x===b));
+    A.$$("#v-rec .tab-panel").forEach(p=>p.classList.remove("active"));
+    A.$("#r-"+b.dataset.r).classList.add("active");
+  });
+  function openRec(id){
+    cur=DB.mdmIndents.find(x=>x.id===id); if(!cur)return;
+    show("rec");
+    A.$$(".tabs button[data-v]").forEach(x=>x.classList.remove("active"));
+    A.$$(".tabs button[data-r]").forEach((x,i)=>x.classList.toggle("active",i===0));
+    A.$$("#v-rec .tab-panel").forEach((p,i)=>p.classList.toggle("active",i===0));
+    A.$("#ucFiled").checked=!!cur.ucFiled;
+    detail(); billDoc(); ucDoc();
+  }
+  A.$("#ucFiled").addEventListener("change",e=>{
+    A.commit(db=>{db.mdmIndents.find(x=>x.id===cur.id).ucFiled=e.target.checked;});
+    cur.ucFiled=e.target.checked; A.toast("Updated");
+  });
+
+  function detail(){
+    const i=cur;
+    A.$("#r-det").innerHTML=`<div class="card">
+      <div class="inline" style="justify-content:space-between"><h3 style="margin:0">${A.esc(i.indentNo)}</h3>
+      <span class="badge ${i.ucFiled?"green":"amber"}">${i.ucFiled?"UC filed":"UC pending"}</span></div>
+      <div class="divider"></div>
+      <div class="grid cols-3">
+        ${kv("School",i.schoolName+" ("+i.udise+")")}
+        ${kv("Mandal",i.mandal||"—")}${kv("Month",i.month)}
+        ${kv("MDM serving days",i.days)}
+        ${kv("Primary avg / day",i.pAvg+"  → "+A.num(i.pMeals)+" meals")}
+        ${kv("Upper Primary avg / day",i.uAvg+"  → "+A.num(i.uMeals)+" meals")}
+        ${kv("Cooking cost (P)",A.money(i.pCost))}${kv("Cooking cost (UP)",A.money(i.uCost))}
+        ${kv("Cooking cost total",A.money(i.cookingCost))}
+        ${kv("Cook-cum-Helpers",i.cch+"  → "+A.money(i.honorarium))}
+        ${kv("Rice required",i.riceReqd+" kg")}
+        ${kv("Rice: open + recd",i.riceOpen+" + "+i.riceRecd+" = "+i.riceAvail+" kg")}
+        ${kv("Rice closing balance",i.riceClose+" kg")}
+        ${kv("Total payable",A.money(i.totalCost))}
+      </div>
+      <div class="btn-row">
+        <button class="btn secondary small" id="edit">Edit indent</button>
+        <button class="btn small" id="toBill">Send to Bill Generation</button>
+        <button class="btn danger small" id="del">Delete</button>
+      </div></div>`;
+    A.$("#edit").onclick=()=>{
+      frm.reset();
+      ["schoolId","month","days","pAvg","uAvg","cch","riceOpen","riceRecd","costOpen","id"].forEach(k=>{
+        if(frm.elements[k]) frm.elements[k].value=i[k]!=null?i[k]:"";
+      });
+      frm.elements.id.value=i.id; show("new"); syncTab(1);
+    };
+    A.$("#del").onclick=()=>{
+      if(!A.confirmBox("Delete this indent?"))return;
+      A.commit(db=>{db.mdmIndents=db.mdmIndents.filter(x=>x.id!==i.id);});
+      render(); show("list"); syncTab(0);
+    };
+    A.$("#toBill").onclick=()=>{
+      A.commit(db=>{
+        const v=A.nextCounter("billVoucher");
+        db.bills.push({id:A.uid("BILL"),date:A.today(),voucherNo:"V-"+v+"/"+A.fyOf(),
+          type:"MDM Cooking Cost",title:"MDM cooking cost & honorarium — "+i.schoolName+" ("+i.month+")",
+          payee:i.cookAgency||i.schoolName,head:"2202-01-112 / PM POSHAN — Cooking Cost",
+          gross:Number(i.totalCost),deductions:0,net:Number(i.totalCost),status:"Prepared",
+          sourceRef:i.indentNo,narration:"Release of cooking cost "+A.money(i.cookingCost)+" and CCH honorarium "+A.money(i.honorarium)+" for "+i.month});
+      });
+      A.toast("Bill created in Bill Generation","ok");
+    };
+  }
+  function kv(k,v){return `<div><label>${k}</label><div>${A.esc(v)}</div></div>`;}
+
+  function billDoc(){
+    const i=cur;
+    A.$("#billDoc").innerHTML=`
+      <div class="doc-head"><h3>${A.esc(M.office).toUpperCase()}, ${A.esc(M.district).toUpperCase()}</h3>
+      <p>MID DAY MEALS (PM POSHAN) &mdash; MONTHLY INDENT &amp; COOKING-COST BILL</p></div>
+      <hr>
+      <div class="ref-line"><span><b>Indent No.:</b> ${A.esc(i.indentNo)}</span><span><b>Month:</b> ${i.month}</span></div>
+      <div class="ref-line"><span><b>School:</b> ${A.esc(i.schoolName)} (${A.esc(i.udise)})</span><span><b>Mandal:</b> ${A.esc(i.mandal||"")}</span></div>
+      <div class="ref-line"><span><b>Cooking agency / SHG:</b> ${A.esc(i.cookAgency||"—")}</span><span><b>MDM serving days:</b> ${i.days}</span></div>
+      <table class="doc-tbl">
+        <thead><tr><th>Stage</th><th class="right">Avg./day</th><th class="right">Meals (avg&times;days)</th><th class="right">Rate / meal</th><th class="right">Cooking cost</th></tr></thead>
+        <tbody>
+          <tr><td>Primary (I-V)</td><td class="right">${i.pAvg}</td><td class="right">${A.num(i.pMeals)}</td><td class="right">₹ ${R.pCost.toFixed(2)}</td><td class="right">${A.money(i.pCost)}</td></tr>
+          <tr><td>Upper Primary (VI-VIII)</td><td class="right">${i.uAvg}</td><td class="right">${A.num(i.uMeals)}</td><td class="right">₹ ${R.uCost.toFixed(2)}</td><td class="right">${A.money(i.uCost)}</td></tr>
+          <tr><td colspan="4"><b>Total cooking cost</b></td><td class="right"><b>${A.money(i.cookingCost)}</b></td></tr>
+          <tr><td colspan="4">Cook-cum-Helper honorarium (${i.cch} &times; ₹ ${R.cchHon.toFixed(2)})</td><td class="right">${A.money(i.honorarium)}</td></tr>
+          <tr><td colspan="4"><b>Total amount payable</b></td><td class="right"><b>${A.money(i.totalCost)}</b></td></tr>
+        </tbody>
+      </table>
+      <p class="small">(${A.esc(A.amountInWords(i.totalCost))})</p>
+      <table class="doc-tbl">
+        <thead><tr><th colspan="4">Rice account (kg) &mdash; @ ${R.pRice} g Primary / ${R.uRice} g Upper Primary per child per day</th></tr></thead>
+        <tbody>
+          <tr><td>Opening balance</td><td class="right">${i.riceOpen}</td><td>Received from MLS point</td><td class="right">${i.riceRecd}</td></tr>
+          <tr><td>Total available</td><td class="right">${i.riceAvail}</td><td>Consumed (required)</td><td class="right">${i.riceReqd}</td></tr>
+          <tr><td colspan="3"><b>Closing balance of rice</b></td><td class="right"><b>${i.riceClose}</b></td></tr>
+        </tbody>
+      </table>
+      <p>Certified that the mid day meal was served to the children on all the serving days shown above, that the number of children shown is the average actually availed as per the daily register, and that the rice and cooking cost have been accounted for as above. The amount of <b>${A.money(i.totalCost)}</b> may be released.</p>
+      <div class="sign-block">
+        <div>Headmaster</div><div>${A.esc(i.schoolName)}</div>
+      </div>
+      <div class="noting" style="margin-top:22px">
+        <div class="para"><b>Verified in the office of the ${A.esc(M.officer)}:</b> The indent is checked with the MDM monthly return and MPR. The amount of ${A.money(i.totalCost)} is admissible and may be drawn under head <b>2202-01-112 &mdash; PM POSHAN</b> and released to the school / agency account.</div>
+      </div>
+      <div class="sign-block"><div class="desig">Mandal Educational Officer / MDM Cell</div></div>
+      <div class="sign-block" style="margin-top:36px"><div class="desig">${A.esc(M.officer)}</div><div>${A.esc(M.district)}</div></div>`;
+  }
+
+  function ucDoc(){
+    const i=cur;
+    A.$("#ucDoc").innerHTML=`
+      <div class="doc-head"><h3>UTILISATION CERTIFICATE</h3>
+      <p>Mid Day Meal Scheme (PM POSHAN) &mdash; Cooking Cost &amp; Honorarium</p></div>
+      <hr>
+      <div class="ref-line"><span><b>Ref. Indent No.:</b> ${A.esc(i.indentNo)}</span><span><b>Month:</b> ${i.month}</span></div>
+      <div class="ref-line"><span><b>School / Agency:</b> ${A.esc(i.schoolName)} (${A.esc(i.udise)})</span><span><b>F.Y.:</b> ${A.fyOf(i.month+"-01")}</span></div>
+      <hr>
+      <div class="body">
+        <p>Certified that an amount of <b>${A.money(i.totalCost)}</b> (${A.esc(A.amountInWords(i.totalCost))}) released towards Mid Day Meal cooking cost (${A.money(i.cookingCost)}) and Cook-cum-Helper honorarium (${A.money(i.honorarium)}) for the month of <b>${i.month}</b> has been fully utilised for the purpose for which it was sanctioned and in accordance with the guidelines of the Scheme.</p>
+        <p>Certified further that meals were served on <b>${i.days}</b> days to an average of <b>${A.num(i.pAvg)}</b> Primary and <b>${A.num(i.uAvg)}</b> Upper Primary children per day, that <b>${i.riceReqd} kg</b> of rice was consumed, and that the closing balance of rice is <b>${i.riceClose} kg</b>, duly entered in the stock register.</p>
+        <p>Certified that no amount out of this release remains unspent, that the vouchers are maintained and are open to audit, and that the same expenditure has not been claimed earlier.</p>
+      </div>
+      <div class="sign-block" style="margin-top:30px"><div>Headmaster</div><div>${A.esc(i.schoolName)}</div></div>
+      <div class="sign-block" style="margin-top:30px"><div>Mandal Educational Officer</div><div>${A.esc(i.mandal||"")}</div></div>
+      <div class="sign-block" style="margin-top:30px"><div class="desig">Countersigned &mdash; ${A.esc(M.officer)}</div><div>${A.esc(M.district)}</div></div>`;
+  }
+
+  A.$("#btnPrintBill").onclick=()=>window.print();
+  A.$("#btnPrintUc").onclick=()=>window.print();
+
+  A.$("#btnCsv").onclick=()=>{
+    const head=["IndentNo","Month","School","UDISE","Mandal","MDMDays","PrimaryAvg","UPAvg","PrimaryMeals","UPMeals","CookingCost","CCH","Honorarium","RiceReqdKg","RiceClosingKg","TotalPayable","UCFiled"];
+    const rows=DB.mdmIndents.map(i=>[i.indentNo,i.month,i.schoolName,i.udise,i.mandal,i.days,i.pAvg,i.uAvg,i.pMeals,i.uMeals,i.cookingCost,i.cch,i.honorarium,i.riceReqd,i.riceClose,i.totalCost,i.ucFiled?"Yes":"No"]);
+    A.downloadFile("mdm-indents-"+A.today()+".csv",A.toCSV([head,...rows]),"text/csv");
+  };
+
+  render();
+})();
+</script>
+</body>
+</html>

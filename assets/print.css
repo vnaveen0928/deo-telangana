@@ -1,0 +1,14 @@
+/* Print rules - used when generating hard copies of Notes, Drafts,
+   Proceedings, Pay Slips, MDM indents and bills. */
+@media print{
+  body{background:#fff}
+  .masthead,nav.topnav,footer.gov,.doc-toolbar,.no-print,#toast,.tabs,.pill-filter{display:none !important}
+  .wrap{max-width:none;padding:0;margin:0}
+  .doc{border:0;box-shadow:none;max-width:none;margin:0;padding:14mm 16mm;font-size:12.5pt}
+  .doc .sign-block{margin-top:36mm}
+  table.data{font-size:11pt}
+  .card{box-shadow:none;border:1px solid #999}
+  a{color:#000;text-decoration:none}
+  @page{size:A4;margin:12mm}
+  .page-break{page-break-before:always}
+}

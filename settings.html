@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Settings &middot; DEO Telangana Office Suite</title>
+<link rel="stylesheet" href="assets/styles.css">
+<link rel="stylesheet" href="assets/print.css">
+</head>
+<body>
+<div class="wrap">
+  <div class="page-title"><h2>Settings</h2></div>
+  <div class="crumbs">Office particulars used on every Note, Draft, Proceedings and Bill; pay &amp; MDM rates used in computations; and data backup.</div>
+
+  <div class="grid cols-2">
+    <div class="card">
+      <h3>Office particulars</h3>
+      <form id="mForm">
+        <div class="form-row"><div><label>Office</label><input name="office"></div><div><label>District</label><input name="district"></div></div>
+        <div class="form-row three"><div><label>State</label><input name="state"></div><div><label>Station</label><input name="station"></div><div><label>D.D.O. Code</label><input name="ddoCode"></div></div>
+        <div class="form-row"><div><label>Officer (designation in orders)</label><input name="officer"></div><div><label>Treasury / D.T.O.</label><input name="treasury"></div></div>
+        <div class="btn-row"><button class="btn" type="submit">Save particulars</button></div>
+      </form>
+    </div>
+
+    <div class="card">
+      <h3>Pay computation rates</h3>
+      <form id="rForm">
+        <div class="form-row three">
+          <div><label>Dearness Allowance %</label><input type="number" name="daPct" step="0.001"></div>
+          <div><label>CPS / NPS employee %</label><input type="number" name="cpsEmpPct" step="0.01"></div>
+          <div><label>GIS monthly (₹)</label><input type="number" name="gisMonthly"></div>
+        </div>
+        <div class="form-row three">
+          <div><label>Prof. Tax — up to ₹15,000</label><input type="number" name="pt0" value="0" readonly class="muted"></div>
+          <div><label>PT — ₹15,001 to ₹20,000</label><input type="number" name="pt1"></div>
+          <div><label>PT — above ₹20,000</label><input type="number" name="pt2"></div>
+        </div>
+        <div class="hint">These are indicative defaults. Update them to the rates currently notified by the Government of Telangana / Finance Department before running pay bills.</div>
+        <div class="btn-row"><button class="btn" type="submit">Save rates</button></div>
+      </form>
+    </div>
+
+    <div class="card">
+      <h3>Mid Day Meal rates</h3>
+      <form id="dForm">
+        <div class="form-row three">
+          <div><label>Cooking cost — Primary (₹/child/day)</label><input type="number" name="pCost" step="0.01"></div>
+          <div><label>Cooking cost — Upper Primary (₹/child/day)</label><input type="number" name="uCost" step="0.01"></div>
+          <div><label>CCH honorarium (₹/month)</label><input type="number" name="cchHon"></div>
+        </div>
+        <div class="form-row">
+          <div><label>Rice — Primary (g/child/day)</label><input type="number" name="pRice"></div>
+          <div><label>Rice — Upper Primary (g/child/day)</label><input type="number" name="uRice"></div>
+        </div>
+        <div class="btn-row"><button class="btn" type="submit">Save MDM rates</button></div>
+      </form>
+    </div>
+
+    <div class="card">
+      <h3>Data &amp; backup</h3>
+      <p class="small muted">All records are stored only inside this browser profile (localStorage). Clearing browser data or using another computer will not carry the records &mdash; use Backup / Restore.</p>
+      <div class="btn-row">
+        <button class="btn" id="btnExport">Download backup (.json)</button>
+        <label class="btn secondary" style="cursor:pointer">Restore from backup&hellip;<input type="file" id="fileImport" accept="application/json" hidden></label>
+      </div>
+      <div class="divider"></div>
+      <div class="btn-row">
+        <button class="btn danger" id="btnReset">Erase all &amp; restore sample data</button>
+      </div>
+      <div id="stat" class="small muted" style="margin-top:10px"></div>
+    </div>
+  </div>
+</div>
+
+<script src="assets/app.js"></script>
+<script>
+(function(){
+  const A=window.App, DB=window.App.DB, M=DB.meta;
+
+  A.chrome("settings.html");
+
+  /* office */
+  const mForm=A.$("#mForm");
+  ["office","district","state","station","ddoCode","officer","treasury"].forEach(k=>{if(mForm.elements[k])mForm.elements[k].value=M[k]||"";});
+  mForm.addEventListener("submit",e=>{e.preventDefault();
+    const o=A.formData(mForm);
+    A.commit(db=>{Object.assign(db.meta,o);});
+    A.toast("Office particulars saved","ok");setTimeout(()=>location.reload(),600);
+  });
+
+  /* rates */
+  const r=A.rates(), rForm=A.$("#rForm");
+  rForm.elements.daPct.value=r.daPct;
+  rForm.elements.cpsEmpPct.value=r.cpsEmpPct;
+  rForm.elements.gisMonthly.value=r.gisMonthly;
+  rForm.elements.pt1.value=r.ptSlabs[1].tax;
+  rForm.elements.pt2.value=r.ptSlabs[2].tax;
+  rForm.addEventListener("submit",e=>{e.preventDefault();
+    const o=A.formData(rForm);
+    A.commit(db=>{
+      db.meta.rates=Object.assign({},db.meta.rates||{},{
+        daPct:Number(o.daPct),cpsEmpPct:Number(o.cpsEmpPct),gisMonthly:Number(o.gisMonthly),
+        ptSlabs:[{upto:15000,tax:0},{upto:20000,tax:Number(o.pt1)},{upto:Infinity,tax:Number(o.pt2)}]
+      });
+    });
+    A.toast("Pay rates saved","ok");
+  });
+
+  /* mdm */
+  const md=Object.assign({pCost:5.45,uCost:8.17,pRice:100,uRice:150,cchHon:1000},(M.rates&&M.rates.mdm)||{});
+  const dForm=A.$("#dForm");
+  ["pCost","uCost","cchHon","pRice","uRice"].forEach(k=>dForm.elements[k].value=md[k]);
+  dForm.addEventListener("submit",e=>{e.preventDefault();
+    const o=A.formData(dForm);
+    A.commit(db=>{
+      db.meta.rates=Object.assign({},db.meta.rates||{});
+      db.meta.rates.mdm={pCost:Number(o.pCost),uCost:Number(o.uCost),cchHon:Number(o.cchHon),pRice:Number(o.pRice),uRice:Number(o.uRice)};
+    });
+    A.toast("MDM rates saved","ok");
+  });
+
+  /* backup */
+  A.$("#btnExport").onclick=()=>A.exportBackup();
+  A.$("#fileImport").addEventListener("change",e=>{
+    if(e.target.files[0])A.importBackup(e.target.files[0]);
+  });
+  A.$("#btnReset").onclick=()=>A.resetAll();
+
+  const c=DB.counters;
+  A.$("#stat").textContent=
+    `Records — employees ${DB.employees.length}, schools ${DB.schools.length}, medical claims ${DB.medicalBills.length}, `+
+    `MDM indents ${DB.mdmIndents.length}, service matters ${DB.serviceMatters.length}, `+
+    `pay slips ${DB.payBills.filter(x=>x.kind==="payslip").length}, pay bills ${DB.payBills.filter(x=>x.kind==="paybill").length}, other bills ${DB.bills.length}.`;
+})();
+</script>
+</body>
+</html>

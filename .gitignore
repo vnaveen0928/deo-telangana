@@ -1,0 +1,13 @@
+.DS_Store
+.env
+.env.*
+!.env.example
+.venv/
+venv/
+__pycache__/
+*.pyc
+.idea/
+.vscode/
+.ipynb_checkpoints/
+chroma_db/
+*.pdf
